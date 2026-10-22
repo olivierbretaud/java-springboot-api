@@ -63,6 +63,9 @@ public class AuthService {
         utilisateur.setMotDePasse(passwordEncoder.encode(request.getNouveauMotDePasse()));
         utilisateur.setResetToken(null);
         utilisateur.setResetTokenExpiry(null);
+        if (!utilisateur.isActif()) {
+            utilisateur.setActif(true);
+        }
         utilisateurRepository.save(utilisateur);
     }
 }

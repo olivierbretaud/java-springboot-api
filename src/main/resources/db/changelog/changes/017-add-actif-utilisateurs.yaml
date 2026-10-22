@@ -1,14 +1,14 @@
 databaseChangeLog:
   - changeSet:
-      id: 005-add-prenom-utilisateurs
+      id: 017-add-actif-utilisateurs
       author: formation
       changes:
         - addColumn:
             tableName: utilisateurs
             columns:
               - column:
-                  name: prenom
-                  type: VARCHAR(100)
+                  name: actif
+                  type: boolean
                   constraints:
                     nullable: false
-                  defaultValue: ""
+                  defaultValueBoolean: false

@@ -1,258 +1,194 @@
 # Formation Java + Spring Boot + PostgreSQL
 
-## 🚀 Démarrage rapide
+API REST complète construite pas à pas : CRUD, pagination, relations JPA, sécurité JWT et tests.
+
+---
+
+## Démarrage rapide
 
 ### Prérequis
+
 - Java 17+
-- Gradle
-- Docker & Docker Compose
-- Un éditeur (VS Code, IntelliJ, etc.)
+- Docker & Docker Compose (PostgreSQL)
+- Gradle (wrapper inclus)
 
+### Lancer l'application
 
-### Étape 1 : Lancer l'application
-```bash
 ./gradlew bootRun
 ```
 
-L'API sera disponible à `http://localhost:8085/api`
+L'API est disponible sur `http://localhost:8085/api`  
+Swagger UI : `http://localhost:8085/api/swagger-ui.html`
 
 ---
 
-## 📚 Architecture Spring Boot
+## Stack technique
 
-### Couches de l'application
-
-```
-Controller (REST API)
-    ↓
-Service (Logique métier)
-    ↓
-Repository (Accès BD)
-    ↓
-Entity (Modèle de données)
-```
-
-### 1. **Entity** (`Produit.java`)
-- Représente une table en base de données
-- Annotations JPA : `@Entity`, `@Table`, `@Column`
-- Validations : `@NotNull`, `@Positive`, `@NotBlank`
-- Lombok : `@Data` génère getters/setters/equals/hashCode
-
-### 2. **DTO** (`ProduitDTO.java`)
-- Data Transfer Object = classe pour communiquer avec les clients
-- Contient les mêmes validations que l'Entity
-- Sépare la structure BD de l'API REST
-
-### 3. **Repository** (`ProduitRepository.java`)
-- Interface qui hérite de `JpaRepository<Entity, IdType>`
-- Fournit automatiquement les méthodes CRUD (Create, Read, Update, Delete)
-- Permet d'écrire des requêtes personnalisées
-
-### 4. **Service** (`ProduitService.java`)
-- Contient la logique métier
-- Utilise le Repository pour accéder aux données
-- Convertit Entity ↔ DTO
-- Annotation `@Transactional` pour gérer les transactions BD
-
-### 5. **Controller** (`ProduitController.java`)
-- Définit les endpoints REST
-- `@GetMapping`, `@PostMapping`, `@PutMapping`, `@DeleteMapping`
-- `@Valid` valide les données entrantes
-- Retourne des `ResponseEntity` avec le bon statut HTTP
+| Composant | Version | Rôle |
+|-----------|---------|------|
+| Java | 17 | Langage principal |
+| Spring Boot | 3.5.x | Framework web |
+| Spring Security | 3.5.x | Authentification et autorisation |
+| Spring Data JPA | 3.5.x | Accès aux données |
+| PostgreSQL | 16 | Base de données |
+| Liquibase | - | Migrations de schéma |
+| Gradle | 8.x | Build system |
+| Lombok | - | Réduction du boilerplate |
+| SpringDoc OpenAPI | 2.x | Documentation Swagger |
+| JJWT | 0.12.6 | Tokens JWT |
+| JUnit 5 + Mockito | - | Tests unitaires et de slice |
+| TestContainers | - | Tests d'intégration PostgreSQL |
 
 ---
 
-## 🔌 Endpoints disponibles
+## Endpoints
+
+Tous les endpoints (sauf `/auth/login`, `/auth/reset-password`, `/auth/change-password`, Swagger) nécessitent un token JWT.
+
+### Authentification
+
+```
+POST   /api/auth/login              → { token: "eyJ..." }
+POST   /api/auth/reset-password     → demande de reset par email
+POST   /api/auth/change-password    → applique le nouveau mot de passe
+GET    /api/auth/profile            → profil de l'utilisateur connecté
+```
 
 ### Produits
-```
-GET    /api/produits              → Tous les produits
-GET    /api/produits/{id}         → Un produit par ID
-POST   /api/produits              → Créer un produit
-PUT    /api/produits/{id}         → Mettre à jour
-DELETE /api/produits/{id}         → Supprimer
 
-GET    /api/produits/search/nom?q=laptop              → Chercher par nom
-GET    /api/produits/search/prix?min=100&max=1000   → Chercher par prix
-GET    /api/produits/stock/faible?seuil=10           → Stock faible
+```
+GET    /api/produit                 → liste tous les produits
+GET    /api/produit/{id}            → un produit par id
+POST   /api/produit                 → créer un produit
+PUT    /api/produit/{id}            → modifier un produit
+DELETE /api/produit/{id}            → supprimer un produit
+GET    /api/produit/search          → recherche filtrée + paginée
 ```
 
-### Exemple : Créer un produit
+Paramètres de recherche : `nom`, `categorieId`, `prixMin`, `prixMax`, `page`, `size`, `sort`, `direction`.
+
+### Commandes
+
+```
+POST   /api/commandes               → créer une commande
+GET    /api/commandes/{id}          → consulter une commande
+PATCH  /api/commandes/{id}/statut   → changer le statut
+```
+
+### Référentiel
+
+```
+GET    /api/referentiel/categories  → liste des catégories
+GET    /api/referentiel/statuts     → liste des statuts de commande
+GET    /api/referentiel/roles       → liste des rôles
+```
+
+---
+
+## Exemples cURL
+
 ```bash
-curl -X POST http://localhost:8080/api/produits \
+# Login
+TOKEN=$(curl -s -X POST http://localhost:8085/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "nom": "Laptop",
-    "description": "Ordinateur portable haute performance",
-    "prix": 1299.99,
-    "quantite": 5
-  }'
-```
+  -d '{"email":"admin@formation.com","password":"admin123"}' | jq -r '.token')
 
----
+# Lister les produits
+curl http://localhost:8085/api/produit \
+  -H "Authorization: Bearer $TOKEN"
 
-## 🎯 Concepts clés à retenir
+# Recherche filtrée
+curl "http://localhost:8085/api/produit/search?nom=café&prixMax=15&page=0&size=10" \
+  -H "Authorization: Bearer $TOKEN"
 
-### Annotations Spring principales
-| Annotation | Utilité |
-|-----------|---------|
-| `@SpringBootApplication` | Point d'entrée de l'app |
-| `@RestController` | Classe qui gère les endpoints |
-| `@Service` | Classe avec la logique métier |
-| `@Repository` | Accès aux données |
-| `@Autowired` / `@RequiredArgsConstructor` | Injection de dépendances |
-| `@Transactional` | Gère les transactions BD |
-
-### Annotations JPA
-| Annotation | Utilité |
-|-----------|---------|
-| `@Entity` | Classe = table BD |
-| `@Table` | Nom de la table |
-| `@Id` | Clé primaire |
-| `@GeneratedValue` | Auto-incrément |
-| `@Column` | Colonne de la table |
-| `@JoinColumn` | Clé étrangère |
-
-### Annotations Validation
-| Annotation | Contrôle |
-|-----------|----------|
-| `@NotNull` | Pas null |
-| `@NotBlank` | Pas vide/null |
-| `@Positive` | > 0 |
-| `@Min(n)` | ≥ n |
-| `@Max(n)` | ≤ n |
-| `@Email` | Format email |
-
----
-
-## 🧪 Tester avec cURL ou Postman
-
-### Récupérer tous les produits
-```bash
-curl http://localhost:8080/api/produits
-```
-
-### Récupérer un produit
-```bash
-curl http://localhost:8080/api/produits/1
-```
-
-### Créer un produit
-```bash
-curl -X POST http://localhost:8080/api/produits \
+# Créer un produit
+curl -X POST http://localhost:8085/api/produit \
   -H "Content-Type: application/json" \
-  -d '{"nom":"Phone","description":"Smartphone","prix":599.99,"quantite":10}'
-```
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"nom":"Café arabica","prix":12.50,"uniteParPackaging":6,"idCategorie":1}'
 
-### Mettre à jour
-```bash
-curl -X PUT http://localhost:8080/api/produits/1 \
+# Créer une commande
+curl -X POST "http://localhost:8085/api/commandes?utilisateurId=1" \
   -H "Content-Type: application/json" \
-  -d '{"nom":"Phone XL","description":"New","prix":699.99,"quantite":8}'
-```
-
-### Supprimer
-```bash
-curl -X DELETE http://localhost:8080/api/produits/1
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"lignes":[{"idProduit":1,"quantite":2}]}'
 ```
 
 ---
 
-## 📖 Prochaines étapes
+## Architecture
 
-### Phase 2 : Authentification & Sécurité
-- Ajouter Spring Security
-- JWT tokens
-- Roles/Permissions
+```
+Controller  →  Service  →  Mapper  →  Repository  →  PostgreSQL
+                                            ↑
+                                         Entity
+```
 
-### Phase 3 : Relations entre entités
-- OneToMany (Commandes → Produits)
-- ManyToMany (Utilisateurs ↔ Rôles)
+```
+src/main/java/com/formation/
+├── security/          ← Spring Security + filtre JWT
+├── core/
+│   ├── auth/          ← login, reset password
+│   ├── produits/      ← CRUD + recherche paginée
+│   ├── commandes/     ← création, statuts
+│   └── referentiel/   ← catégories, rôles, statuts
+└── engine/
+    ├── config/        ← JPA Auditing, OpenAPI
+    ├── entities/      ← ProduitEntity, CommandeEntity, UtilisateurEntity…
+    ├── exceptions/    ← GlobalExceptionHandler
+    ├── pagination/    ← PageParams, PageResponse<T>
+    └── repositories/
+```
 
-### Phase 4 : Tests
-- Tests unitaires (JUnit 5)
-- Tests d'intégration
-
-### Phase 5 : Déploiement
-- Docker de l'app
-- CI/CD (GitHub Actions)
+Les tables sont gérées par **Liquibase** (16 migrations, `ddl-auto: none`).
 
 ---
 
-## 🛠 Structure du projet
-```
-formation-java/
-├── src/
-│   ├── main/
-│   │   ├── java/com/formation/
-│   │   │   ├── FormationApplication.java          (Point d'entrée)
-│   │   │   ├── engine/
-│   │   │   │   ├── entities/
-│   │   │   │   │   └── Categorie.java             (Entité JPA)
-│   │   │   │   └── exceptions/
-│   │   │   │       └── GlobalExceptionHandler.java (Gestion erreurs globale)
-│   │   │   └── step1/
-│   │   │       └── HelloController.java           (Endpoints de démonstration)
-│   │   └── resources/
-│   │       ├── application.yml                    (Configuration)
-│   │       └── db/changelog/
-│   │           ├── db.changelog-master.yaml       (Master Liquibase)
-│   │           └── changes/
-│   │               ├── 001-create-categories.yaml (Création table + données)
-│   │               └── 002-insert-categories.yaml (Ajout catégories)
-│   └── test/
-│       └── java/com/formation/
-│           └── step1/
-│               └── HelloControllerTest.java       (Tests unitaires)
-├── build.gradle.kts                               (Dépendances Gradle)
-├── docker-compose.yml                             (PostgreSQL)
-└── README.md
+## Schéma de la base de données
+
+7 tables métier, 6 clés étrangères, 16 migrations Liquibase.
+
+Voir [doc/formation/DATABASE.md](doc/formation/DATABASE.md) pour le diagramme complet, le détail de chaque table et la liste des migrations.
+
+---
+
+## Commandes utiles
+
+```bash
+./gradlew bootRun       # lancer l'application
+./gradlew test          # tous les tests
+./gradlew build         # build du JAR
+./gradlew clean         # nettoyer le build
 ```
 
 ---
 
-## ⚡ Commandes utiles
+## Documentation
 
-```bash
-# Lancer l'app
-./gradlew bootRun
+Les étapes de la formation sont détaillées dans [doc/formation/](doc/formation/) :
 
-# Build JAR
-./gradlew build
-
-# Tester
-./gradlew test
-
-# Nettoyer
-./gradlew clean
-
-# Afficher les dépendances
-./gradlew dependencies
-
-# Appliquer les migrations Liquibase (sans redémarrer l'app)
-./gradlew update
-```
+| Fichier | Contenu |
+|---------|---------|
+| [GUIDE_COMPLET.md](doc/formation/GUIDE_COMPLET.md) | Vue d'ensemble et référence |
+| [DATABASE.md](doc/formation/DATABASE.md) | Schéma de la base de données |
+| [ETAPE_1.md](doc/formation/ETAPE_1.md) | Hello World REST |
+| [ETAPE_2.md](doc/formation/ETAPE_2.md) | CRUD Produits + JPA Auditing |
+| [ETAPE_3.md](doc/formation/ETAPE_3.md) | Pagination et filtres dynamiques |
+| [ETAPE_4.md](doc/formation/ETAPE_4.md) | Relations JPA (Commandes) |
+| [ETAPE_5.md](doc/formation/ETAPE_5.md) | Authentification Spring Security + JWT |
+| [ETAPE_6.md](doc/formation/ETAPE_6.md) | Pyramide des tests |
 
 ---
 
+### Erreurs courantes
 
-### Erreur : "Address already in use" port 8080
 ```bash
-# Trouver le processus utilisant le port
-lsof -i :8080
+# Port déjà utilisé
+lsof -i :8085
 
-# Arrêter l'app précédente ou changer le port dans application.yml
-```
-
-### Erreur de compilation
-```bash
-# Rebuild complète
+# Rebuild complet
 ./gradlew clean build
 
-# Vérifier que Java 17+ est installé
-java -version
+# Java version
+java -version   # doit afficher Java 17+
 ```
-
----
-
-✨ **Bonne formation !** N'hésitez pas à explorer, modifier, et expérimenter.

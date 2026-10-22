@@ -8,5 +8,6 @@ import lombok.Setter;
 public class RoleDto {
 
     private Long id;
+    private String code;
     private String label;
 }

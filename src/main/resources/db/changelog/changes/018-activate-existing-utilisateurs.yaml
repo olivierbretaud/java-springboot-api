@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 018-activate-existing-utilisateurs
+      author: formation
+      comment: Les utilisateurs créés avant l'ajout du champ actif sont considérés comme actifs
+      changes:
+        - update:
+            tableName: utilisateurs
+            columns:
+              - column:
+                  name: actif
+                  valueBoolean: true

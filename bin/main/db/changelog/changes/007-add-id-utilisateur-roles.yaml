@@ -1,9 +1,0 @@
-databaseChangeLog:
-  - changeSet:
-      id: 007-add-id-utilisateur-roles
-      author: formation
-      changes:
-        - sql:
-            sql: >
-              ALTER TABLE utilisateur_roles ADD COLUMN id BIGSERIAL;
-              ALTER TABLE utilisateur_roles ADD PRIMARY KEY (id);

@@ -25,4 +25,19 @@ public class MailService {
         );
         mailSender.send(message);
     }
+
+    public void envoyerEmailActivation(String destinataire, String token) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(destinataire);
+        message.setSubject("Activation de votre compte");
+        message.setText(
+            "Bonjour,\n\n" +
+            "Votre compte a été créé. Définissez votre mot de passe pour activer votre accès.\n\n" +
+            "Votre token d'activation : " + token + "\n\n" +
+            "Ce token est valable 24 heures.\n\n" +
+            "Utilisez-le avec POST /api/auth/change-password.\n\n" +
+            "Si vous n'êtes pas concerné par cette demande, ignorez cet email."
+        );
+        mailSender.send(message);
+    }
 }

@@ -36,10 +36,6 @@ Chaque étape s'appuie sur la précédente. Lisez-les dans l'ordre.
 
 ## Démarrage rapide
 
-```bash
-# 1. Lancer PostgreSQL
-docker-compose up -d
-
 # 2. Lancer l'application (port 8085)
 ./gradlew bootRun
 

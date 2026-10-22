@@ -50,6 +50,7 @@ public class ReferencielMapper {
         return entityMapper.toDto(entity, e -> {
             RoleDto dto = new RoleDto();
             dto.setId(e.getId());
+            dto.setCode(e.getCode());
             dto.setLabel(e.getLibelle());
             return dto;
         });

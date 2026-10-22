@@ -50,6 +50,9 @@ public class UtilisateurEntity implements UserDetails {
     @JoinColumn(name = "role_id", nullable = false)
     private RoleEntity role;
 
+    @Column(nullable = false)
+    private boolean actif = false;
+
     @Column
     private String resetToken;
 
@@ -69,5 +72,10 @@ public class UtilisateurEntity implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.getCode()));
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return actif;
     }
 }
