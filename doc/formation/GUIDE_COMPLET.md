@@ -493,6 +493,7 @@ formation-java/
 ├── doc/formation/
 │   ├── INDEX.md                     ← Navigation
 │   ├── GUIDE_COMPLET.md             ← Ce guide
+│   ├── DATABASE.md                  ← Schéma BD (tables, FK, migrations)
 │   ├── ARCHITECTURE.md              ← Détails architecture
 │   ├── CONCEPTS.md                  ← Concepts en détail
 │   ├── SPRING_BOOT.md               ← Référence Spring Boot
