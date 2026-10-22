@@ -37,7 +37,7 @@ public class UtilisateurEntity implements UserDetails {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
-    @Column(nullable = false)
+    @Column
     private String motDePasse;
 
     @Column(nullable = false, length = 100)

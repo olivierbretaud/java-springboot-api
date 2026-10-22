@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 019-nullable-mot-de-passe-utilisateurs
+      author: formation
+      changes:
+        - dropNotNullConstraint:
+            tableName: utilisateurs
+            columnName: mot_de_passe
+            columnDataType: VARCHAR(255)
