@@ -14,11 +14,6 @@ API REST complète construite pas à pas : CRUD, pagination, relations JPA, séc
 
 ### Lancer l'application
 
-```bash
-# 1. Démarrer PostgreSQL
-docker compose up -d
-
-# 2. Lancer l'application
 ./gradlew bootRun
 ```
 

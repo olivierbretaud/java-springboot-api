@@ -71,6 +71,12 @@ public class GlobalExceptionHandler {
         return error(409, "Opération impossible", ex.getMessage());
     }
 
+    // Conflit métier (ex: email déjà utilisé)
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        return error(409, "Conflit", ex.getMessage());
+    }
+
     // Ressource introuvable
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleEntityNotFound(EntityNotFoundException ex) {
