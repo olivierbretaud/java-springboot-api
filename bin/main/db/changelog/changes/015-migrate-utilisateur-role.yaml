@@ -1,0 +1,46 @@
+databaseChangeLog:
+  - changeSet:
+      id: 015-migrate-utilisateur-role
+      author: formation
+      changes:
+        - addColumn:
+            tableName: utilisateurs
+            columns:
+              - column:
+                  name: role_id
+                  type: BIGINT
+        - sql:
+            splitStatements: false
+            sql: |
+              DO $$
+              BEGIN
+                IF EXISTS (
+                  SELECT 1 FROM information_schema.tables
+                  WHERE table_name = 'utilisateur_roles'
+                ) THEN
+                  UPDATE utilisateurs u
+                  SET role_id = (
+                    SELECT r.id FROM roles r
+                    WHERE r.code = (
+                      SELECT ur.role FROM utilisateur_roles ur
+                      WHERE ur.utilisateur_id = u.id
+                      LIMIT 1
+                    )
+                  );
+                END IF;
+              END $$
+        - sql:
+            sql: "UPDATE utilisateurs SET role_id = 1 WHERE role_id IS NULL;"
+        - addNotNullConstraint:
+            tableName: utilisateurs
+            columnName: role_id
+            columnDataType: BIGINT
+        - addForeignKeyConstraint:
+            baseTableName: utilisateurs
+            baseColumnNames: role_id
+            constraintName: fk_utilisateurs_role
+            referencedTableName: roles
+            referencedColumnNames: id
+        - sql:
+            sql: >
+              DROP TABLE IF EXISTS utilisateur_roles;

@@ -1,0 +1,62 @@
+databaseChangeLog:
+  - changeSet:
+      id: 013-add-id-to-statuts-commande
+      author: formation
+      changes:
+        # 1. Ajouter la colonne id (nullable pour l'instant)
+        - addColumn:
+            tableName: statuts_commande
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+
+        # 2. Peupler id avec des valeurs fixes pour les statuts existants
+        - sql:
+            sql: >
+              UPDATE statuts_commande SET id = 1 WHERE code = 'EN_ATTENTE';
+              UPDATE statuts_commande SET id = 2 WHERE code = 'CONFIRMEE';
+              UPDATE statuts_commande SET id = 3 WHERE code = 'EXPEDIEE';
+              UPDATE statuts_commande SET id = 4 WHERE code = 'LIVREE';
+              UPDATE statuts_commande SET id = 5 WHERE code = 'ANNULEE';
+
+        # 3. Rendre id NOT NULL
+        - addNotNullConstraint:
+            tableName: statuts_commande
+            columnName: id
+            columnDataType: BIGINT
+
+        # 4. Supprimer la FK de commandes.statut -> statuts_commande(code)
+        #    (elle dépend de la PK que l'on va supprimer)
+        - dropForeignKeyConstraint:
+            baseTableName: commandes
+            constraintName: fk_commandes_statut
+
+        # 5. Supprimer l'ancienne clé primaire sur code
+        - dropPrimaryKey:
+            tableName: statuts_commande
+            constraintName: statuts_commande_pkey
+
+        # 6. Ajouter contrainte UNIQUE sur code (pour remplacer l'unicité apportée par la PK)
+        - addUniqueConstraint:
+            tableName: statuts_commande
+            columnNames: code
+            constraintName: uq_statuts_commande_code
+
+        # 7. Ajouter la nouvelle clé primaire sur id
+        - addPrimaryKey:
+            tableName: statuts_commande
+            columnNames: id
+            constraintName: pk_statuts_commande
+
+        # 8. Créer une séquence pour les futurs ids
+        - createSequence:
+            sequenceName: statuts_commande_id_seq
+            startValue: 6
+            incrementBy: 1
+
+        # 9. Définir la valeur par défaut de id via la séquence
+        - addDefaultValue:
+            tableName: statuts_commande
+            columnName: id
+            defaultValueSequenceNext: statuts_commande_id_seq

@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-create-statuts-commande
+      author: formation
+      validCheckSum: ANY
+      changes:
+        - createTable:
+            tableName: statuts_commande
+            columns:
+              - column:
+                  name: code
+                  type: VARCHAR(20)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: libelle
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: commandes
+            baseColumnNames: statut
+            constraintName: fk_commandes_statut
+            referencedTableName: statuts_commande
+            referencedColumnNames: code

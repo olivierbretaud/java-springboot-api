@@ -1,0 +1,53 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-table-categories
+      author: formation
+      changes:
+        - createTable:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: nom
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: description
+                  type: VARCHAR(500)
+
+  - changeSet:
+      id: 001-insert-categories-defaut
+      author: formation
+      changes:
+        - insert:
+            tableName: categories
+            columns:
+              - column: {name: nom, value: "Électronique"}
+              - column: {name: description, value: "Smartphones, ordinateurs, accessoires"}
+        - insert:
+            tableName: categories
+            columns:
+              - column: {name: nom, value: "Vêtements"}
+              - column: {name: description, value: "Homme, femme, enfant"}
+        - insert:
+            tableName: categories
+            columns:
+              - column: {name: nom, value: "Alimentation"}
+              - column: {name: description, value: "Produits frais et épicerie"}
+        - insert:
+            tableName: categories
+            columns:
+              - column: {name: nom, value: "Sport"}
+              - column: {name: description, value: "Équipements et vêtements de sport"}
+        - insert:
+            tableName: categories
+            columns:
+              - column: {name: nom, value: "Maison"}
+              - column: {name: description, value: "Mobilier et décoration"}

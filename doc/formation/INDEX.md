@@ -1,0 +1,52 @@
+# Formation Java + Spring Boot + PostgreSQL
+
+## Navigation rapide
+
+| Étape | Titre | Concepts clés | Durée | Statut |
+|-------|-------|---------------|-------|--------|
+| 1 | [Hello World API](./ETAPE_1.md) | `@RestController`, `@GetMapping`, `ResponseEntity` | 30 min | ✅ |
+| 2 | [CRUD Produits](./ETAPE_2.md) | `@Entity`, `@Service`, DTO/Payload, Mapper, Liquibase | 1h–1h30 | ✅ |
+| 3 | [Filtres et pagination](./ETAPE_3.md) | `Specification`, `PageParams`, `PageResponse<T>` | 1h–2h | ✅ |
+| 4 | [Relations JPA](./ETAPE_4.md) | `@OneToMany`, `@ManyToOne`, `FetchType`, cascade | 1h–2h | ✅ |
+| 5 | [Authentification & JWT](./ETAPE_5.md) | Spring Security, JWT, BCrypt, `@WithMockUser` | 2h–3h | ✅ |
+| 6 | [Tests avancés](./ETAPE_6.md) | pyramide des tests, `@WebMvcTest`, `@DataJpaTest`, TestContainers | 2h–3h | ✅ |
+
+---
+
+## Parcours recommandé
+
+```
+ETAPE_1 → ETAPE_2 → ETAPE_3 → ETAPE_4 → ETAPE_5 → ETAPE_6
+```
+
+Chaque étape s'appuie sur la précédente. Lisez-les dans l'ordre.
+
+---
+
+## Autres documents
+
+| Fichier | Contenu |
+|---------|---------|
+| [GUIDE_COMPLET.md](./GUIDE_COMPLET.md) | Vue d'ensemble : architecture, concepts, commandes utiles |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Structure des packages et couches de l'application |
+| [CONCEPTS.md](./CONCEPTS.md) | Référence des annotations Spring Boot et JPA |
+| [RESSOURCES.md](./RESSOURCES.md) | Liens externes, documentation officielle |
+
+---
+
+## Démarrage rapide
+
+```bash
+# 1. Lancer PostgreSQL
+docker-compose up -d
+
+# 2. Lancer l'application (port 8085)
+./gradlew bootRun
+
+# 3. Vérifier
+curl http://localhost:8085/api/hello
+```
+
+---
+
+*Dernière mise à jour : 2026-09-30*

@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 016-add-reset-token-utilisateurs
+      author: formation
+      changes:
+        - addColumn:
+            tableName: utilisateurs
+            columns:
+              - column:
+                  name: reset_token
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: reset_token_expiry
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: true

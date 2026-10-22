@@ -1,0 +1,27 @@
+# Secrets
+.env
+*.env.*
+application-local.properties
+application-local.yml
+
+# Build
+build/
+.gradle/
+*.class
+*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java crash logs
+hs_err_pid*

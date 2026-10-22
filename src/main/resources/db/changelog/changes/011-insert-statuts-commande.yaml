@@ -1,0 +1,50 @@
+databaseChangeLog:
+  - changeSet:
+      id: 011-insert-statuts-commande
+      author: formation
+      changes:
+        - insert:
+            tableName: statuts_commande
+            columns:
+              - column:
+                  name: code
+                  value: EN_ATTENTE
+              - column:
+                  name: libelle
+                  value: En attente
+        - insert:
+            tableName: statuts_commande
+            columns:
+              - column:
+                  name: code
+                  value: CONFIRMEE
+              - column:
+                  name: libelle
+                  value: Confirmée
+        - insert:
+            tableName: statuts_commande
+            columns:
+              - column:
+                  name: code
+                  value: EXPEDIEE
+              - column:
+                  name: libelle
+                  value: Expédiée
+        - insert:
+            tableName: statuts_commande
+            columns:
+              - column:
+                  name: code
+                  value: LIVREE
+              - column:
+                  name: libelle
+                  value: Livrée
+        - insert:
+            tableName: statuts_commande
+            columns:
+              - column:
+                  name: code
+                  value: ANNULEE
+              - column:
+                  name: libelle
+                  value: Annulée

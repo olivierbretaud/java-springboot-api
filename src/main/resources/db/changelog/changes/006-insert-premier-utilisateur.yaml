@@ -1,0 +1,36 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-insert-premier-utilisateur
+      author: formation
+      changes:
+        - insert:
+            tableName: utilisateurs
+            columns:
+              - column:
+                  name: email
+                  value: "admin@formation.com"
+              - column:
+                  name: mot_de_passe
+                  value: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+              - column:
+                  name: nom
+                  value: "Admin"
+              - column:
+                  name: prenom
+                  value: "Super"
+              - column:
+                  name: date_creation
+                  valueDate: "now()"
+              - column:
+                  name: date_modification
+                  valueDate: "now()"
+
+        - insert:
+            tableName: utilisateur_roles
+            columns:
+              - column:
+                  name: utilisateur_id
+                  valueComputed: "(SELECT id FROM utilisateurs WHERE email = 'admin@formation.com')"
+              - column:
+                  name: role
+                  value: "MEMBRE"

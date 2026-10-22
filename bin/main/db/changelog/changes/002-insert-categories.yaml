@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-insert-nouvelle-categorie
+      author: formation
+      changes:
+        - insert:
+            tableName: categories
+            columns:
+              - column: {name: nom, value: "Jardinage"}
+              - column: {name: description, value: "Outils et plantes"}

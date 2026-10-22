@@ -1,0 +1,39 @@
+databaseChangeLog:
+  - changeSet:
+      id: 012-migrate-commandes-statut
+      author: formation
+      changes:
+        # 1. Ajouter la nouvelle colonne statut_id (nullable pour l'instant)
+        - addColumn:
+            tableName: commandes
+            columns:
+              - column:
+                  name: statut_id
+                  type: BIGINT
+
+        # 2. Peupler statut_id depuis l'ancienne colonne statut (via code dans statuts_commande)
+        - sql:
+            sql: >
+              UPDATE commandes
+              SET statut_id = (
+                SELECT id FROM statuts_commande WHERE code = commandes.statut
+              )
+
+        # 3. Rendre statut_id NOT NULL
+        - addNotNullConstraint:
+            tableName: commandes
+            columnName: statut_id
+            columnDataType: BIGINT
+
+        # 4. Ajouter la contrainte de clé étrangère
+        - addForeignKeyConstraint:
+            baseTableName: commandes
+            baseColumnNames: statut_id
+            constraintName: fk_commandes_statut_id
+            referencedTableName: statuts_commande
+            referencedColumnNames: id
+
+        # 5. Supprimer l'ancienne colonne
+        - dropColumn:
+            tableName: commandes
+            columnName: statut
