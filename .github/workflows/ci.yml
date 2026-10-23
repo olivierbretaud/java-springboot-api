@@ -46,6 +46,9 @@ jobs:
       - name: Build
         run: ./gradlew build -x test
 
+      - name: Générer verification-metadata.xml
+        run: ./gradlew --write-verification-metadata sha256 help --no-daemon
+
       - name: Tests, couverture et analyse SonarCloud
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
