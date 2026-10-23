@@ -139,7 +139,8 @@ Controller  →  Service  →  Mapper  →  Repository  →  PostgreSQL
 src/main/java/com/formation/
 ├── security/          ← Spring Security + filtre JWT
 ├── core/
-│   ├── auth/          ← login, reset password
+│   ├── auth/          ← login, reset password, envoi d'emails (MailService)
+│   ├── utilisateurs/  ← CRUD utilisateurs
 │   ├── produits/      ← CRUD + recherche paginée
 │   ├── commandes/     ← création, statuts
 │   └── referentiel/   ← catégories, rôles, statuts
@@ -150,6 +151,29 @@ src/main/java/com/formation/
     ├── pagination/    ← PageParams, PageResponse<T>
     └── repositories/
 ```
+
+### Tests
+
+```
+src/test/java/com/formation/
+├── engine/            ← EntityMapperTest, PageResponseTest, GlobalExceptionHandlerTest
+├── security/          ← JwtServiceTest, JwtAuthenticationFilterTest…
+└── core/
+    ├── auth/
+    │   ├── service/   ← AuthServiceTest, MailServiceTest
+    │   └── controller/← AuthControllerTest
+    ├── utilisateurs/  ← UtilisateurServiceTest, UtilisateurMapperTest, UtilisateurControllerTest
+    ├── produits/      ← ProduitServiceTest, ProduitMapperTest, ProduitControllerTest…
+    ├── commandes/     ← CommandeServiceTest, CommandeMapperTest, CommandeControllerTest
+    └── referentiel/   ← ReferentielServiceTest, ReferencielMapperTest, ReferentielControllerTest
+```
+
+| Couche | Annotation | Vitesse |
+|--------|-----------|---------|
+| Mapper / Specification | aucune (`new MaClasse()`) | ⚡⚡⚡ |
+| Service | `@ExtendWith(MockitoExtension.class)` | ⚡⚡⚡ |
+| Controller | `@WebMvcTest` | ⚡⚡ |
+| Repository | `@DataJpaTest` + TestContainers | ⚡ |
 
 Les tables sont gérées par **Liquibase** (16 migrations, `ddl-auto: none`).
 

@@ -154,6 +154,7 @@ class UtilisateurServiceTest {
     // ── updateUtilisateur ─────────────────────────────────────────────────────
 
     @Test
+    @SuppressWarnings("null")
     void updateUtilisateur_retourne_dto_mis_a_jour() {
         UtilisateurUpdatePayload payload = updatePayload("Dupont", 1L);
         UtilisateurEntity entity = entityUtilisateur("alice@test.com");
@@ -161,7 +162,7 @@ class UtilisateurServiceTest {
 
         when(utilisateurRepository.findById(1L)).thenReturn(Optional.of(entity));
         when(roleRepository.findById(1L)).thenReturn(Optional.of(role(1L)));
-        when(utilisateurRepository.save(entity)).thenReturn(entity);
+        when(utilisateurRepository.save(any(UtilisateurEntity.class))).thenReturn(entity);
         when(utilisateurMapper.toUtilisateurDto(entity)).thenReturn(dto);
 
         UtilisateurDto result = utilisateurService.updateUtilisateur(1L, payload);
@@ -173,18 +174,20 @@ class UtilisateurServiceTest {
     @Test
     void updateUtilisateur_leve_exception_si_utilisateur_inexistant() {
         when(utilisateurRepository.findById(99L)).thenReturn(Optional.empty());
+        UtilisateurUpdatePayload payload = updatePayload("Test", 1L);
 
         assertThrows(EntityNotFoundException.class,
-                () -> utilisateurService.updateUtilisateur(99L, updatePayload("Test", 1L)));
+                () -> utilisateurService.updateUtilisateur(99L, payload));
     }
 
     @Test
     void updateUtilisateur_leve_exception_si_role_inexistant() {
         when(utilisateurRepository.findById(1L)).thenReturn(Optional.of(entityUtilisateur("alice@test.com")));
         when(roleRepository.findById(99L)).thenReturn(Optional.empty());
+        UtilisateurUpdatePayload payload = updatePayload("Test", 99L);
 
         assertThrows(EntityNotFoundException.class,
-                () -> utilisateurService.updateUtilisateur(1L, updatePayload("Test", 99L)));
+                () -> utilisateurService.updateUtilisateur(1L, payload));
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
