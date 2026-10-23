@@ -4,9 +4,9 @@ spring:
 
   # Configuration PostgreSQL
   datasource:
-    url: jdbc:postgresql://localhost:5432/formation_db
-    username: postgres
-    password: postgres
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/formation_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   # JPA/Hibernate

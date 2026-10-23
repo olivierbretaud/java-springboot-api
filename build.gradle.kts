@@ -4,7 +4,7 @@ plugins {
     id("org.springframework.boot") version "3.5.16"
     id("io.spring.dependency-management") version "1.1.7"
     id("io.freefair.lombok") version "9.2.0"
-    id("org.sonarqube") version "6.0.1.5171"
+    id("org.sonarqube") version "7.5.0.8588"
 }
 
 group = "com.formation"
