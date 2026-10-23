@@ -4,6 +4,7 @@ plugins {
     id("org.springframework.boot") version "3.5.16"
     id("io.spring.dependency-management") version "1.1.7"
     id("io.freefair.lombok") version "9.2.0"
+    id("org.sonarqube") version "6.0.1.5171"
 }
 
 group = "com.formation"
@@ -77,5 +78,14 @@ tasks.jacocoTestReport {
 
 jacoco {
     toolVersion = "0.8.12"
+}
+
+sonarqube {
+    properties {
+        property("sonar.projectKey", System.getenv("SONAR_PROJECT_KEY") ?: "")
+        property("sonar.organization", System.getenv("SONAR_ORGANIZATION") ?: "")
+        property("sonar.host.url", "https://sonarcloud.io")
+        property("sonar.coverage.jacoco.xmlReportPaths", "${layout.buildDirectory.get()}/reports/jacoco/test/jacocoTestReport.xml")
+    }
 }
 
