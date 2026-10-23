@@ -1,15 +1,3 @@
-buildscript {
-    repositories {
-        gradlePluginPortal()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:7.5.0.8588'
-    }
-}
-
-apply plugin: 'org.sonarqube'
-
 sonarqube {
     properties {
         property 'sonar.projectKey', 'olivierbretaud_java-springboot-api'
