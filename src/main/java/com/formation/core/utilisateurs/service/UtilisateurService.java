@@ -3,7 +3,6 @@ package com.formation.core.utilisateurs.service;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.formation.core.auth.service.MailService;
@@ -27,7 +26,6 @@ public class UtilisateurService implements IUtilisateurService {
 
     private final UtilisateurRepository utilisateurRepository;
     private final RoleRepository roleRepository;
-    private final PasswordEncoder passwordEncoder;
     private final UtilisateurMapper utilisateurMapper;
     private final MailService mailService;
 
@@ -54,8 +52,7 @@ public class UtilisateurService implements IUtilisateurService {
         RoleEntity role = roleRepository.findById(payload.getRoleId())
             .orElseThrow(() -> new EntityNotFoundException("Rôle introuvable : " + payload.getRoleId()));
 
-        String motDePasseHache = passwordEncoder.encode(payload.getMotDePasse());
-        UtilisateurEntity entity = utilisateurMapper.toEntity(payload, role, motDePasseHache);
+        UtilisateurEntity entity = utilisateurMapper.toEntity(payload, role, null);
 
         String token = UUID.randomUUID().toString();
         entity.setResetToken(token);

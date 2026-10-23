@@ -23,10 +23,6 @@ public class UtilisateurCreatePayload {
     @Size(max = 100)
     private String prenom;
 
-    @NotBlank
-    @Size(min = 8)
-    private String motDePasse;
-
     @NotNull
     private Long roleId;
 }
