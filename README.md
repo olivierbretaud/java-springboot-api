@@ -12,6 +12,17 @@ API REST complète construite pas à pas : CRUD, pagination, relations JPA, séc
 - Docker & Docker Compose (PostgreSQL)
 - Gradle (wrapper inclus)
 
+### Configuration
+
+Créer un fichier `.env` à la racine du projet avec les variables suivantes :
+
+```env
+JWT_SECRET=
+JWT_EXPIRATION_MS=
+```
+
+> `JWT_EXPIRATION_MS` : durée de validité du token en millisecondes (ex: `86400000` pour 24h).
+
 ### Lancer l'application
 
 ./gradlew bootRun
@@ -160,6 +171,8 @@ Voir [doc/formation/DATABASE.md](doc/formation/DATABASE.md) pour le diagramme co
 ./gradlew build         # build du JAR
 ./gradlew clean         # nettoyer le build
 ```
+
+Rapports de tests générés après `./gradlew test` : [build/reports/tests/test/index.html](build/reports/tests/test/index.html)
 
 ---
 

@@ -5,14 +5,15 @@ import com.formation.core.utilisateurs.dto.UtilisateurDto;
 import com.formation.core.utilisateurs.dto.UtilisateurUpdatePayload;
 import com.formation.engine.pagination.PageParams;
 import com.formation.engine.pagination.PageResponse;
+import org.springframework.lang.NonNull;
 
 public interface IUtilisateurService {
 
     PageResponse<UtilisateurDto> listUtilisateurs(PageParams params);
 
-    UtilisateurDto getUtilisateurById(Long id);
+    UtilisateurDto getUtilisateurById(@NonNull Long id);
 
     UtilisateurDto createUtilisateur(UtilisateurCreatePayload payload);
 
-    UtilisateurDto updateUtilisateur(Long id, UtilisateurUpdatePayload payload);
+    UtilisateurDto updateUtilisateur(@NonNull Long id, UtilisateurUpdatePayload payload);
 }
