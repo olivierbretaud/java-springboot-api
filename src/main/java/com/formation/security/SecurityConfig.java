@@ -26,6 +26,7 @@ public class SecurityConfig {
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     @Bean
+    @SuppressWarnings("java:S4502") // CSRF désactivé intentionnellement : API REST stateless avec JWT, pas de session
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
