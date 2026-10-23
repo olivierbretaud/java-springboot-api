@@ -58,4 +58,4 @@ jobs:
       - name: Lien vers le rapport SonarCloud
         run: |
           echo "### Rapport SonarCloud" >> $GITHUB_STEP_SUMMARY
-          echo "[Voir le rapport](https://sonarcloud.io/dashboard?id=olivierbretaud_java-springboot-api)" >> $GITHUB_STEP_SUMMARY
+          echo "[Voir le rapport](https://sonarcloud.io/summary/new_code?id=olivierbretaud_java-springboot-api&branch=${{ github.ref_name }})" >> $GITHUB_STEP_SUMMARY
