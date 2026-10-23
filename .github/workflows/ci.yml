@@ -46,14 +46,11 @@ jobs:
       - name: Build
         run: ./gradlew build -x test
 
-      - name: Tests et couverture
-        run: ./gradlew test
-
-      - name: Analyse SonarCloud
+      - name: Tests, couverture et analyse SonarCloud
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./gradlew sonar
+        run: ./gradlew test jacocoTestReport sonar
 
       - name: Lien vers le rapport SonarCloud
         run: |
