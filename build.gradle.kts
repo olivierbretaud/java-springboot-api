@@ -90,6 +90,7 @@ sonarqube {
         property("sonar.organization", "olivierbretaud")    // ex: olivier-bretaud
         property("sonar.host.url", "https://sonarcloud.io")
         property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml")
+        property("sonar.java.binaries", "build/classes/java/main")
     }
 }
 
