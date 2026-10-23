@@ -1,6 +1,7 @@
 package com.formation.core.utilisateurs.service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import com.formation.engine.repositories.UtilisateurRepository;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.NonNull;
 
 @Service
 @RequiredArgsConstructor
@@ -38,13 +40,14 @@ public class UtilisateurService implements IUtilisateurService {
     }
 
     @Override
-    public UtilisateurDto getUtilisateurById(Long id) {
+    public UtilisateurDto getUtilisateurById(@NonNull Long id) {
         UtilisateurEntity entity = utilisateurRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable : " + id));
         return utilisateurMapper.toUtilisateurDto(entity);
     }
 
     @Override
+    @SuppressWarnings("null")
     public UtilisateurDto createUtilisateur(UtilisateurCreatePayload payload) {
         if (utilisateurRepository.findByEmail(payload.getEmail()).isPresent()) {
             throw new IllegalArgumentException("Un utilisateur avec cet email existe déjà : " + payload.getEmail());
@@ -56,7 +59,7 @@ public class UtilisateurService implements IUtilisateurService {
 
         String token = UUID.randomUUID().toString();
         entity.setResetToken(token);
-        entity.setResetTokenExpiry(LocalDateTime.now().plusHours(24));
+        entity.setResetTokenExpiry(LocalDateTime.now(ZoneOffset.UTC).plusHours(24));
 
         UtilisateurEntity saved = utilisateurRepository.save(entity);
         mailService.envoyerEmailActivation(saved.getEmail(), token);
@@ -65,7 +68,8 @@ public class UtilisateurService implements IUtilisateurService {
     }
 
     @Override
-    public UtilisateurDto updateUtilisateur(Long id, UtilisateurUpdatePayload payload) {
+    @SuppressWarnings("null")
+    public UtilisateurDto updateUtilisateur(@NonNull Long id, UtilisateurUpdatePayload payload) {
         UtilisateurEntity entity = utilisateurRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Utilisateur introuvable : " + id));
 

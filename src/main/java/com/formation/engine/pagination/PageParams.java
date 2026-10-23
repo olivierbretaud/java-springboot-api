@@ -15,9 +15,11 @@ public abstract class PageParams {
     private int page = 0;
     private int size = 10;
     private String sort = "id";
+    @NonNull
     private String direction = "ASC";
 
     @NonNull
+    @SuppressWarnings("null")
     public Pageable toPageable() {
         String sortField = (sort != null && !sort.isBlank()) ? sort : "id";
         Sort.Direction dir = Sort.Direction.fromOptionalString(direction).orElse(Sort.Direction.ASC);

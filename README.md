@@ -172,6 +172,8 @@ Voir [doc/formation/DATABASE.md](doc/formation/DATABASE.md) pour le diagramme co
 ./gradlew clean         # nettoyer le build
 ```
 
+Rapports de tests générés après `./gradlew test` : [build/reports/tests/test/index.html](build/reports/tests/test/index.html)
+
 ---
 
 ## Documentation
