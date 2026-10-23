@@ -82,8 +82,8 @@ jacoco {
 
 sonarqube {
     properties {
-        property("sonar.projectKey", System.getenv("SONAR_PROJECT_KEY") ?: "")
-        property("sonar.organization", System.getenv("SONAR_ORGANIZATION") ?: "")
+        property("sonar.projectKey", "olivierbretaud_java-springboot-api")       // ex: olivier-bretaud_formation-java
+        property("sonar.organization", "olivierbretaud")    // ex: olivier-bretaud
         property("sonar.host.url", "https://sonarcloud.io")
         property("sonar.coverage.jacoco.xmlReportPaths", "${layout.buildDirectory.get()}/reports/jacoco/test/jacocoTestReport.xml")
     }
