@@ -1,0 +1,48 @@
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: formation-postgres
+    environment:
+      POSTGRES_DB: formation_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── MailHog (serveur mail de dev) ────────────────────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: formation-mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Interface web
+
+  # ── API Spring Boot ───────────────────────────────────────────────────────────
+  api:
+    build: .
+    container_name: formation-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/formation_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      # JWT_SECRET: changez cette valeur en production
+    ports:
+      - "8086:8086"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

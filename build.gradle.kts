@@ -4,7 +4,10 @@ plugins {
     id("org.springframework.boot") version "3.5.16"
     id("io.spring.dependency-management") version "1.1.7"
     id("io.freefair.lombok") version "9.2.0"
-    id("org.sonarqube") version "7.5.0.8588"
+}
+
+if (System.getenv("CI") == "true") {
+    apply(from = "sonar.gradle")
 }
 
 group = "com.formation"
@@ -61,10 +64,6 @@ tasks.withType<Test> {
     finalizedBy(tasks.jacocoTestReport)
 }
 
-tasks.sonarqube {
-    dependsOn(tasks.jacocoTestReport)
-}
-
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
     reports {
@@ -82,15 +81,5 @@ tasks.jacocoTestReport {
 
 jacoco {
     toolVersion = "0.8.12"
-}
-
-sonarqube {
-    properties {
-        property("sonar.projectKey", "olivierbretaud_java-springboot-api")       // ex: olivier-bretaud_formation-java
-        property("sonar.organization", "olivierbretaud")    // ex: olivier-bretaud
-        property("sonar.host.url", "https://sonarcloud.io")
-        property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml")
-        property("sonar.java.binaries", "build/classes/java/main")
-    }
 }
 

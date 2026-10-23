@@ -1,0 +1,29 @@
+buildscript {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:7.5.0.8588'
+    }
+}
+
+apply plugin: 'org.sonarqube'
+
+sonarqube {
+    properties {
+        property 'sonar.projectKey', 'olivierbretaud_java-springboot-api'
+        property 'sonar.organization', 'olivierbretaud'
+        property 'sonar.host.url', 'https://sonarcloud.io'
+        property 'sonar.coverage.jacoco.xmlReportPaths', 'build/reports/jacoco/test/jacocoTestReport.xml'
+        property 'sonar.java.binaries', 'build/classes/java/main'
+    }
+}
+
+tasks.named('sonarqube').configure {
+    dependsOn tasks.named('jacocoTestReport')
+}
+
+tasks.named('sonar').configure {
+    dependsOn tasks.named('jacocoTestReport')
+}
