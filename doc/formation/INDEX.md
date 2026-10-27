@@ -10,13 +10,14 @@
 | 4 | [Relations JPA](./ETAPE_4.md) | `@OneToMany`, `@ManyToOne`, `FetchType`, cascade | ✅ |
 | 5 | [Authentification & JWT](./ETAPE_5.md) | Spring Security, JWT, BCrypt, `@WithMockUser` | ✅ |
 | 6 | [Tests avancés](./ETAPE_6.md) | pyramide des tests, `@WebMvcTest`, `@DataJpaTest`, TestContainers | ✅ |
+| 7 | [CI et Docker](./ETAPE_7.md) | Dockerfile multi-stage, docker-compose, GitHub Actions, SonarCloud | ✅ |
 
 ---
 
 ## Parcours recommandé
 
 ```
-ETAPE_1 → ETAPE_2 → ETAPE_3 → ETAPE_4 → ETAPE_5 → ETAPE_6
+ETAPE_1 → ETAPE_2 → ETAPE_3 → ETAPE_4 → ETAPE_5 → ETAPE_6 → ETAPE_7
 ```
 
 Chaque étape s'appuie sur la précédente. Lisez-les dans l'ordre.

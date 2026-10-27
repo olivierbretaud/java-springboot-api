@@ -2,7 +2,6 @@ databaseChangeLog:
   - changeSet:
       id: 006-insert-premier-utilisateur
       author: formation
-      validCheckSum: "9:c7c302a4690f503e704cfc4ed8187f46"
       changes:
         - insert:
             tableName: utilisateurs
@@ -10,6 +9,9 @@ databaseChangeLog:
               - column:
                   name: email
                   value: "admin@formation.com"
+              - column:
+                  name: mot_de_passe
+                  value: "PLACEHOLDER"
               - column:
                   name: nom
                   value: "Admin"

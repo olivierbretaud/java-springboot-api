@@ -79,8 +79,9 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         String message = response.getBody().get("message").toString();
-        assertThat(message).contains("nom : ne doit pas être vide");
-        assertThat(message).contains("prix : doit être positif");
+        assertThat(message)
+            .contains("nom : ne doit pas être vide")
+            .contains("prix : doit être positif");
     }
 
     @Test
@@ -95,6 +96,18 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).containsEntry("error", "Type invalide");
         assertThat(response.getBody().get("message").toString()).contains("'id'");
         assertThat(response.getBody().get("message").toString()).contains("Long");
+        assertThat(response.getBody()).containsKey("timestamp");
+    }
+
+    @Test
+    void handleTypeIllegalArgumentException_retourne_409_avec_message() {
+        IllegalArgumentException ex = mock(IllegalArgumentException.class);
+        when(ex.getMessage()).thenReturn("Conflit d'email");
+
+        ResponseEntity<Map<String, Object>> response = handler.handleIllegalArgument(ex);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(response.getBody()).containsEntry("error", "Conflit");
         assertThat(response.getBody()).containsKey("timestamp");
     }
 
