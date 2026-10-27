@@ -20,10 +20,15 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(SecurityConfigTest.MinimalController.class)
+@WebMvcTest(
+        value = SecurityConfigTest.MinimalController.class,
+        properties = "app.cors.allowed-origins=http://localhost:3000"
+)
 @Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, CustomAccessDeniedHandler.class})
 class SecurityConfigTest {
 
@@ -116,6 +121,24 @@ class SecurityConfigTest {
     void session_non_creee_stateless() throws Exception {
         MvcResult result = mockMvc.perform(post("/auth/login")).andReturn();
         assertThat(result.getRequest().getSession(false)).isNull();
+    }
+
+    // ── CORS ──────────────────────────────────────────────────────────────────
+
+    @Test
+    void cors_preflight_retourne_header_allow_origin() throws Exception {
+        mockMvc.perform(options("/auth/login")
+                        .header("Origin", "http://localhost:3000")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
+    }
+
+    @Test
+    void cors_origine_non_autorisee_ne_retourne_pas_allow_origin() throws Exception {
+        mockMvc.perform(options("/auth/login")
+                        .header("Origin", "http://evil.com")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
 
     // ── Bean passwordEncoder ──────────────────────────────────────────────────
