@@ -121,7 +121,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"token\":\"mauvais-token\",\"nouveauMotDePasse\":\"NouveauMdp1@\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Token de réinitialisation invalide."));
+                .andExpect(jsonPath("$.detail").value("Token de réinitialisation invalide."));
     }
 
     @Test

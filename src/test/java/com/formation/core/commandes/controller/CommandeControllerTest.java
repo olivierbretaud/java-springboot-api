@@ -182,7 +182,7 @@ class CommandeControllerTest {
 
         mockMvc.perform(delete("/commandes/1"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value(
+                .andExpect(jsonPath("$.detail").value(
                         "La commande 1 ne peut pas être supprimée (statut : CONFIRMEE)"));
     }
 
