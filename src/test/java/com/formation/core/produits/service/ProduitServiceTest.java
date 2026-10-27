@@ -115,7 +115,6 @@ class ProduitServiceTest {
     }
 
     @Test
-    @SuppressWarnings("null")
     void createProduit_retourne_dto_cree() {
         ProduitCreatePayload request = new ProduitCreatePayload();
         request.setNom("Café arabica");

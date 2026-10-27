@@ -1,6 +1,5 @@
 package com.formation.security;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -32,8 +31,9 @@ class CustomAccessDeniedHandlerTest {
         handler.handle(request, response, new AccessDeniedException("denied"));
 
         String body = response.getContentAsString();
-        assertThat(body).contains("Accès refusé");
-        assertThat(body).contains("droits");
-        assertThat(body).contains("403");
+        assertThat(body)
+            .contains("Accès refusé")
+            .contains("droits")
+            .contains("403");
     }
 }

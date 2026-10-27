@@ -56,3 +56,12 @@ databaseChangeLog:
   - include:
       file: db/changelog/changes/019-nullable-mot-de-passe-utilisateurs.yaml
       relativeToChangelogFile: false
+  - include:
+      file: db/changelog/changes/020-add-brute-force-columns.yaml
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/changes/021-create-refresh-tokens.yaml
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/changes/022-rename-blocage-jusqua.yaml
+      relativeToChangelogFile: false

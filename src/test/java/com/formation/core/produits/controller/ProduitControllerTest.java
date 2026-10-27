@@ -34,7 +34,6 @@ import com.formation.security.UtilisateurDetailsService;
 import org.springframework.context.annotation.Import;
 
 @WebMvcTest(ProduitController.class)
-@SuppressWarnings("null")
 @Import(TestSecurityConfig.class)
 class ProduitControllerTest {
 

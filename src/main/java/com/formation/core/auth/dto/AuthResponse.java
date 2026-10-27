@@ -1,10 +1,16 @@
 package com.formation.core.auth.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
 public class AuthResponse {
-    private String token;
+    private final String token;
+    private final String refreshToken;
+    private final long expiresIn;
+
+    public AuthResponse(String token, String refreshToken, long expiresIn) {
+        this.token = token;
+        this.refreshToken = refreshToken;
+        this.expiresIn = expiresIn;
+    }
 }

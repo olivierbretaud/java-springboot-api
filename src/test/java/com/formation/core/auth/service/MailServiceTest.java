@@ -24,7 +24,6 @@ class MailServiceTest {
     // ── envoyerEmailReset ─────────────────────────────────────────────────────
 
     @Test
-    @SuppressWarnings("null")
     void envoyerEmailReset_appelle_mailSender_send() {
         mailService.envoyerEmailReset("alice@test.com", "tok-123");
 
@@ -74,7 +73,6 @@ class MailServiceTest {
     // ── envoyerEmailActivation ────────────────────────────────────────────────
 
     @Test
-    @SuppressWarnings("null")
     void envoyerEmailActivation_appelle_mailSender_send() {
         mailService.envoyerEmailActivation("bob@test.com", "tok-456");
 
@@ -123,7 +121,6 @@ class MailServiceTest {
 
     // ── helper ────────────────────────────────────────────────────────────────
 
-    @SuppressWarnings("null")
     private SimpleMailMessage captureMessage() {
         ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
         verify(mailSender).send(captor.capture());

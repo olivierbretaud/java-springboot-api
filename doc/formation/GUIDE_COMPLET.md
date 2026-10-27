@@ -251,23 +251,12 @@ Client reçoit le DTO JSON + code HTTP approprié
 - Résultat : API complète CRUD avec base de données
 - [Lire ETAPE_2.md](./ETAPE_2.md)
 
-### Phase 2 : Patterns avancés (Étapes 3-4)
+### Phase 2 : Modèle de données (Étapes 3-4)
 
 **Durée** : 2-4 heures  
-**Objectif** : Requêtes filtrées, pagination et relations entre entités
+**Objectif** : Modéliser des relations réalistes puis ajouter la recherche paginée
 
-#### ETAPE_3 : Filtres et pagination ✅
-- Concepts : `@RequestParam`, `Specification<T>`, `JpaSpecificationExecutor`, pagination Spring Data
-- Fichiers : `ProduitSpecification`, `ProduitSearchParams`, `PageParams`, `PageResponse`
-- Particularités :
-  - `PageParams` (abstraite) est réutilisable pour tout futur endpoint paginé
-  - `ProduitSearchParams extends PageParams` ajoute les filtres spécifiques aux produits
-  - `ProduitSpecification.from(params)` construit les prédicats SQL dynamiquement
-  - `ProduitRepository` implémente `JpaSpecificationExecutor` pour accéder à `findAll(Spec, Pageable)`
-- Résultat : `GET /api/produit/search?nom=café&prixMax=15&page=0&size=10`
-- [Lire ETAPE_3.md](./ETAPE_3.md)
-
-#### ETAPE_4 : Relations ✅
+#### ETAPE_3 : Relations JPA ✅
 - Concepts : `@OneToMany`, `@ManyToOne`, `FetchType.LAZY`, cascade, orphanRemoval
 - Fichiers : `CommandeEntity`, `LigneCommandeEntity`, `StatutCommandeEntity`, `CommandeService`, `CommandeController`
 - Particularités :
@@ -277,12 +266,23 @@ Client reçoit le DTO JSON + code HTTP approprié
   - `CascadeType.ALL` + `orphanRemoval` pour gérer le cycle de vie des lignes
   - `StatutCommandeEntity` en table de référence (pas un `enum` Java)
 - Résultat : API commandes avec création, consultation et changement de statut
+- [Lire ETAPE_3.md](./ETAPE_3.md)
+
+#### ETAPE_4 : Filtres et pagination ✅
+- Concepts : `@RequestParam`, `Specification<T>`, `JpaSpecificationExecutor`, pagination Spring Data
+- Fichiers : `ProduitSpecification`, `ProduitSearchParams`, `PageParams`, `PageResponse`
+- Particularités :
+  - `PageParams` (abstraite) est réutilisable pour tout futur endpoint paginé
+  - `ProduitSearchParams extends PageParams` ajoute les filtres spécifiques aux produits
+  - `ProduitSpecification.from(params)` construit les prédicats SQL dynamiquement
+  - `ProduitRepository` implémente `JpaSpecificationExecutor` pour accéder à `findAll(Spec, Pageable)`
+- Résultat : `GET /api/produit/search?nom=café&prixMax=15&page=0&size=10`
 - [Lire ETAPE_4.md](./ETAPE_4.md)
 
-### Phase 3 : Sécurité et Tests (Étapes 5-6)
+### Phase 3 : Sécurité et robustesse (Étapes 5-6)
 
 **Durée** : 3-5 heures  
-**Objectif** : Sécuriser et tester l'application
+**Objectif** : Sécuriser l'application et standardiser la gestion des erreurs
 
 #### ETAPE_5 : Authentification et JWT ✅
 - Concepts : Spring Security, JWT, `UserDetailsService`, BCrypt, filtres HTTP, rôles
@@ -298,7 +298,24 @@ Client reçoit le DTO JSON + code HTTP approprié
 - Résultat : tous les endpoints protégés, login via JWT Bearer token
 - [Lire ETAPE_5.md](./ETAPE_5.md)
 
-#### ETAPE_6 : Tests avancés ✅
+#### ETAPE_6 : Gestion des erreurs & validation ✅
+- Concepts : Bean Validation, `@Valid`, `@RestControllerAdvice`, `ProblemDetail` RFC 9457, exceptions custom
+- Fichiers : `GlobalExceptionHandler`, `CommandeNonSupprimableException`, `ResetTokenInvalidException`, DTOs annotés
+- Particularités :
+  - `@Valid` obligatoire sur `@RequestBody` — sans lui les annotations sont ignorées en silence
+  - `ProblemDetail` (Spring Boot 3+) remplace les `Map<String, Object>` custom — format standard RFC 9457
+  - `PropertyReferenceException` capturée en 400 pour les champs de tri invalides (`sort=toto`)
+  - Exceptions métier custom levées dans le service, gérées dans le handler — le controller reste simple
+  - `log.error()` sur les 500 uniquement — la stacktrace ne doit jamais atteindre le client
+- Résultat : toutes les erreurs retournent un format ProblemDetail cohérent
+- [Lire ETAPE_6.md](./ETAPE_6.md)
+
+### Phase 4 : Qualité et déploiement (Étapes 7-8)
+
+**Durée** : 3-5 heures  
+**Objectif** : Tester, conteneuriser et automatiser le build
+
+#### ETAPE_7 : Tests avancés ✅
 - Concepts : pyramide des tests, `@WebMvcTest`, `@MockitoBean`, `@DataJpaTest`, TestContainers
 - Fichiers : `CommandeControllerTest`, `CommandeServiceTest`, `CommandeRepositoryTest`
 - Particularités :
@@ -309,7 +326,34 @@ Client reçoit le DTO JSON + code HTTP approprié
   - `em.flush()` + `em.clear()` pour forcer un vrai aller-retour en base
   - `@WithMockUser` pour simuler un utilisateur authentifié dans les tests de Controller sécurisés
 - Résultat : couverture complète de la couche commandes par niveau de test
-- [Lire ETAPE_6.md](./ETAPE_6.md)
+- [Lire ETAPE_7.md](./ETAPE_7.md)
+
+#### ETAPE_8 : CI et Docker ✅
+- Concepts : Dockerfile multi-stage, Docker Compose, GitHub Actions, SonarCloud
+- Fichiers : `Dockerfile`, `docker-compose.yml`, `.github/workflows/ci.yml`
+- Particularités :
+  - Build multi-stage : image builder séparée de l'image runtime — image finale légère
+  - `docker-compose up` lance API + PostgreSQL + MailHog en une commande
+  - Pipeline CI : build → tests → couverture JaCoCo → analyse SonarCloud
+  - SonarCloud bloque le merge si la couverture descend sous le seuil
+- Résultat : chaque push déclenche build, tests et analyse qualité automatiquement
+- [Lire ETAPE_8.md](./ETAPE_8.md)
+
+### Phase 5 : Production (Étape 9)
+
+**Durée** : 1-2 heures  
+**Objectif** : Observer et comprendre ce qui se passe une fois déployé
+
+#### ETAPE_9 : Observabilité ✅
+- Concepts : Spring Boot Actuator, logs structurés JSON, MDC (Mapped Diagnostic Context)
+- Fichiers : `JwtAuthenticationFilter` (MDC), `application.yml` (Actuator + ECS logging)
+- Particularités :
+  - `/actuator/health` public (Docker healthcheck), `/actuator/metrics` réservé au rôle `ACTUATOR`
+  - `logging.structured.format.console: ecs` — JSON natif Spring Boot 3.4+, sans dépendance
+  - `MDC.put("requestId", ...)` posé avant la vérification du token — même les requêtes invalides sont traçables
+  - `MDC.clear()` dans `finally` obligatoire — les threads HTTP sont réutilisés
+- Résultat : health check, métriques JVM/HTTP et logs JSON enrichis avec userId + requestId
+- [Lire ETAPE_9.md](./ETAPE_9.md)
 
 ---
 
@@ -424,25 +468,27 @@ public ProduitDto createProduit(@Valid @RequestBody ProduitCreatePayload request
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleEntityNotFound(EntityNotFoundException ex) {
-        return error(404, "Ressource introuvable", ex.getMessage());
+    public ResponseEntity<ProblemDetail> handleEntityNotFound(EntityNotFoundException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Ressource introuvable", ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
-        // Retourne les messages de validation consolidés
-        return error(400, "Données invalides", ...);
+    public ResponseEntity<ProblemDetail> handleValidation(MethodArgumentNotValidException ex) {
+        String detail = ex.getBindingResult().getFieldErrors().stream()
+                .map(f -> f.getField() + " : " + f.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        return problem(HttpStatus.BAD_REQUEST, "Données invalides", detail);
     }
 }
 ```
 
-Format de réponse d'erreur :
+Format de réponse d'erreur (RFC 9457 ProblemDetail) :
 ```json
 {
+  "type": "about:blank",
+  "title": "Ressource introuvable",
   "status": 404,
-  "error": "Ressource introuvable",
-  "message": "Produit introuvable : 99",
-  "timestamp": "2026-09-30T10:00:00"
+  "detail": "Produit introuvable : 99"
 }
 ```
 
@@ -500,10 +546,13 @@ formation-java/
 │   ├── RESSOURCES.md                ← Ressources externes
 │   ├── ETAPE_1.md                   ← Étape 1 : Hello World
 │   ├── ETAPE_2.md                   ← Étape 2 : CRUD Produits
-│   ├── ETAPE_3.md                   ← Étape 3 : Pagination et Filtres
-│   ├── ETAPE_4.md                   ← Étape 4 : Relations (Commandes)
+│   ├── ETAPE_3.md                   ← Étape 3 : Relations JPA (Commandes)
+│   ├── ETAPE_4.md                   ← Étape 4 : Pagination et Filtres
 │   ├── ETAPE_5.md                   ← Étape 5 : Authentification JWT
-│   └── ETAPE_6.md                   ← Étape 6 : Tests avancés
+│   ├── ETAPE_6.md                   ← Étape 6 : Gestion des erreurs & validation
+│   ├── ETAPE_7.md                   ← Étape 7 : Tests avancés
+│   ├── ETAPE_8.md                   ← Étape 8 : CI et Docker
+│   └── ETAPE_9.md                   ← Étape 9 : Observabilité
 │
 ├── build.gradle.kts                 ← Dépendances Gradle
 ├── settings.gradle
@@ -615,12 +664,15 @@ open http://localhost:8085/api/swagger-ui.html
 
 1. Lire [ETAPE_1.md](./ETAPE_1.md) — Hello World REST
 2. Lire [ETAPE_2.md](./ETAPE_2.md) — CRUD Produits complet
-3. Lire [ETAPE_3.md](./ETAPE_3.md) — Pagination et filtres dynamiques
-4. Lire [ETAPE_4.md](./ETAPE_4.md) — Relations JPA et API commandes
+3. Lire [ETAPE_3.md](./ETAPE_3.md) — Relations JPA et API commandes
+4. Lire [ETAPE_4.md](./ETAPE_4.md) — Pagination et filtres dynamiques
 5. Lire [ETAPE_5.md](./ETAPE_5.md) — Authentification Spring Security + JWT
-6. Lire [ETAPE_6.md](./ETAPE_6.md) — Pyramide des tests (Mockito, @WebMvcTest, @DataJpaTest)
-7. Consulter [ARCHITECTURE.md](./ARCHITECTURE.md) pour les détails techniques
-8. Consulter [CONCEPTS.md](./CONCEPTS.md) pour approfondir les concepts
+6. Lire [ETAPE_6.md](./ETAPE_6.md) — Gestion des erreurs & validation (ProblemDetail RFC 9457)
+7. Lire [ETAPE_7.md](./ETAPE_7.md) — Pyramide des tests (Mockito, @WebMvcTest, @DataJpaTest)
+8. Lire [ETAPE_8.md](./ETAPE_8.md) — CI et Docker (GitHub Actions, SonarCloud)
+9. Lire [ETAPE_9.md](./ETAPE_9.md) — Observabilité (Actuator, logs JSON, MDC)
+10. Consulter [ARCHITECTURE.md](./ARCHITECTURE.md) pour les détails techniques
+11. Consulter [CONCEPTS.md](./CONCEPTS.md) pour approfondir les concepts
 
 ---
 

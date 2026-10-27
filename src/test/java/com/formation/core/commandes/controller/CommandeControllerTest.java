@@ -35,7 +35,6 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.context.annotation.Import;
 
 @WebMvcTest(CommandeController.class)
-@SuppressWarnings("null")
 @Import(TestSecurityConfig.class)
 class CommandeControllerTest {
 
@@ -183,7 +182,7 @@ class CommandeControllerTest {
 
         mockMvc.perform(delete("/commandes/1"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value(
+                .andExpect(jsonPath("$.detail").value(
                         "La commande 1 ne peut pas être supprimée (statut : CONFIRMEE)"));
     }
 
@@ -191,7 +190,7 @@ class CommandeControllerTest {
 
     @Test
     void changerStatut_retourne_200() throws Exception {
-        when(commandeService.changerStatut(eq(1L), eq(2L))).thenReturn(commandeDto(1L, "Confirmée"));
+        when(commandeService.changerStatut(1L, 2L)).thenReturn(commandeDto(1L, "Confirmée"));
 
         mockMvc.perform(patch("/commandes/1/statut")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -221,7 +220,7 @@ class CommandeControllerTest {
 
     @Test
     void changerStatut_retourne_404_si_statut_inexistant() throws Exception {
-        when(commandeService.changerStatut(eq(1L), eq(99L)))
+        when(commandeService.changerStatut(1L, 99L))
                 .thenThrow(new EntityNotFoundException("Statut inconnu : 99"));
 
         mockMvc.perform(patch("/commandes/1/statut")

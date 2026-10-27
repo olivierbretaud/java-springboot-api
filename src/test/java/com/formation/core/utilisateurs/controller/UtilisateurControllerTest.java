@@ -27,7 +27,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(UtilisateurController.class)
 @Import(TestSecurityConfig.class)
-@SuppressWarnings("null")
 class UtilisateurControllerTest {
 
     @Autowired

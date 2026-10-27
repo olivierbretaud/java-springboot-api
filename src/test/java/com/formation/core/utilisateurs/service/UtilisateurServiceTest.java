@@ -43,7 +43,6 @@ class UtilisateurServiceTest {
     // ── listUtilisateurs ──────────────────────────────────────────────────────
 
     @Test
-    @SuppressWarnings("null")
     void listUtilisateurs_retourne_page_mappee() {
         UtilisateurEntity entity = entityUtilisateur("alice@test.com");
         UtilisateurDto dto = dto("alice@test.com");
@@ -59,7 +58,6 @@ class UtilisateurServiceTest {
     }
 
     @Test
-    @SuppressWarnings("null")
     void listUtilisateurs_retourne_page_vide() {
         when(utilisateurRepository.findAll(any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
@@ -96,7 +94,6 @@ class UtilisateurServiceTest {
     // ── createUtilisateur ─────────────────────────────────────────────────────
 
     @Test
-    @SuppressWarnings("null")
     void createUtilisateur_retourne_dto_cree() {
         UtilisateurCreatePayload payload = createPayload("charlie@test.com", 1L);
         UtilisateurEntity entity = entityUtilisateur("charlie@test.com");
@@ -135,7 +132,6 @@ class UtilisateurServiceTest {
     }
 
     @Test
-    @SuppressWarnings("null")
     void createUtilisateur_envoie_email_activation() {
         UtilisateurCreatePayload payload = createPayload("dave@test.com", 1L);
         UtilisateurEntity entity = entityUtilisateur("dave@test.com");
@@ -154,7 +150,6 @@ class UtilisateurServiceTest {
     // ── updateUtilisateur ─────────────────────────────────────────────────────
 
     @Test
-    @SuppressWarnings("null")
     void updateUtilisateur_retourne_dto_mis_a_jour() {
         UtilisateurUpdatePayload payload = updatePayload("Dupont", 1L);
         UtilisateurEntity entity = entityUtilisateur("alice@test.com");

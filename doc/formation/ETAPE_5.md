@@ -6,8 +6,10 @@
 2. [Concepts clés](#concepts-clés)
 3. [Architecture](#architecture)
 4. [Fichiers implémentés](#fichiers-implémentés)
-5. [Tests](#tests)
-6. [Prochaines étapes](#prochaines-étapes)
+5. [Aller plus loin : Refresh token](#aller-plus-loin--refresh-token)
+6. [Aller plus loin : Protection brute-force](#aller-plus-loin--protection-brute-force)
+7. [Tests](#tests)
+8. [Prochaines étapes](#prochaines-étapes)
 
 ---
 
@@ -330,6 +332,461 @@ app:
 
 ---
 
+## 🔄 Aller plus loin : Refresh token
+
+### Pourquoi ?
+
+Un `accessToken` JWT expiré force le re-login. En production, on émet deux tokens au login :
+
+| Token | Durée | Stockage | Rôle |
+|-------|-------|----------|------|
+| `accessToken` | 15 min — 1h | Mémoire JS / header | Authentifier chaque requête |
+| `refreshToken` | 7 — 30 jours | Base de données | Obtenir un nouvel `accessToken` |
+
+Le `refreshToken` est un UUID opaque (pas un JWT) — sa valeur ne révèle rien, il est valide uniquement s'il existe en base et n'est pas expiré.
+
+### Flux côté serveur
+
+```
+Login
+  → accessToken (1h)  + refreshToken (7j, stocké en base)
+
+Requête avec accessToken expiré → 401
+  → POST /auth/refresh { refreshToken: "uuid..." }
+      → vérifie en base (existe + non expiré + même utilisateur)
+      → émet un nouveau accessToken
+      → (optionnel) rotation : invalide l'ancien refreshToken, émet un nouveau
+
+Logout
+  → supprime le refreshToken de la base → impossibilité de renouveler
+```
+
+### Flux côté front — vision complète
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        NAVIGATEUR / APP                             │
+│                                                                     │
+│  1. Login                                                           │
+│     POST /auth/login { email, motDePasse }                          │
+│     ◄── { accessToken: "eyJ...", refreshToken: "uuid...", expiresIn: 3600 }
+│                                                                     │
+│     → Stocker accessToken  : mémoire (variable JS)                 │
+│     → Stocker refreshToken : localStorage ou cookie HttpOnly        │
+│                                                                     │
+│  2. Requête normale                                                 │
+│     GET /commandes                                                  │
+│     Authorization: Bearer eyJ...                                    │
+│     ◄── 200 OK                                                      │
+│                                                                     │
+│  3. accessToken expiré                                              │
+│     GET /commandes                                                  │
+│     Authorization: Bearer eyJ... (expiré)                           │
+│     ◄── 401 Unauthorized                                            │
+│                                                                     │
+│  4. Refresh automatique (intercepteur)                              │
+│     POST /auth/refresh { refreshToken: "uuid..." }                  │
+│     ◄── { accessToken: "eyJ...nouveau", refreshToken: "uuid...", expiresIn: 3600 }
+│                                                                     │
+│     → Remplacer l'accessToken en mémoire                           │
+│     → Rejouer la requête originale avec le nouveau token            │
+│                                                                     │
+│  5. GET /commandes (rejoué)                                         │
+│     Authorization: Bearer eyJ...nouveau                             │
+│     ◄── 200 OK                                                      │
+│                                                                     │
+│  6. refreshToken expiré ou révoqué                                  │
+│     POST /auth/refresh { refreshToken: "uuid...périmé" }            │
+│     ◄── 400 Bad Request                                             │
+│     → Effacer les tokens, rediriger vers /login                     │
+│                                                                     │
+│  7. Logout                                                          │
+│     POST /auth/logout { refreshToken: "uuid..." }                   │
+│     ◄── 204 No Content                                              │
+│     → Effacer accessToken + refreshToken, rediriger vers /login     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Où stocker les tokens ?
+
+| Stockage | accessToken | refreshToken | Risque |
+|----------|-------------|--------------|--------|
+| **Mémoire JS** (variable) | ✅ recommandé | ❌ perdu au reload | Aucun — inaccessible hors JS |
+| **localStorage** | ⚠️ acceptable | ⚠️ acceptable | Vol par XSS |
+| **Cookie HttpOnly** | ❌ complexe avec CORS | ✅ idéal | Cookie inaccessible au JS |
+| **sessionStorage** | ✅ | ❌ perdu à la fermeture | Limité à l'onglet |
+
+**Recommandation :** `accessToken` en mémoire (variable module) + `refreshToken` en `localStorage`. Au rechargement de page, le front fait un appel `/auth/refresh` au démarrage pour récupérer un nouveau `accessToken`.
+
+### Implémentation front — intercepteur Axios
+
+```javascript
+// api.js
+import axios from 'axios'
+
+const api = axios.create({ baseURL: '/api' })
+
+// Injecter le token sur chaque requête
+api.interceptors.request.use(config => {
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`
+  }
+  return config
+})
+
+// Intercepter les 401 et rafraîchir automatiquement
+let isRefreshing = false
+let pendingRequests = []
+
+api.interceptors.response.use(
+  response => response,
+  async error => {
+    const originalRequest = error.config
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      if (isRefreshing) {
+        // Une autre requête est déjà en train de rafraîchir — mettre en attente
+        return new Promise(resolve => {
+          pendingRequests.push(token => {
+            originalRequest.headers.Authorization = `Bearer ${token}`
+            resolve(api(originalRequest))
+          })
+        })
+      }
+
+      isRefreshing = true
+      try {
+        const refreshToken = localStorage.getItem('refreshToken')
+        const { data } = await axios.post('/api/auth/refresh', { refreshToken })
+
+        accessToken = data.accessToken                         // mettre à jour en mémoire
+        localStorage.setItem('refreshToken', data.refreshToken) // rotation
+
+        pendingRequests.forEach(cb => cb(accessToken))         // rejouer les requêtes en attente
+        pendingRequests = []
+
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`
+        return api(originalRequest)                            // rejouer la requête originale
+      } catch {
+        localStorage.removeItem('refreshToken')
+        window.location.href = '/login'                        // session expirée → login
+      } finally {
+        isRefreshing = false
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
+export default api
+```
+
+**`isRefreshing` + `pendingRequests`** : si plusieurs requêtes expirent simultanément (ex. page avec 3 appels parallèles), un seul refresh est émis. Les autres attendent et sont rejouées avec le nouveau token.
+
+### Implémentation front — fetch natif (sans Axios)
+
+```javascript
+// authFetch.js
+async function authFetch(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken()
+    if (!refreshed) {
+      window.location.href = '/login'
+      return
+    }
+    // Rejouer avec le nouveau token
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+  }
+  return response
+}
+
+async function refreshAccessToken() {
+  const refreshToken = localStorage.getItem('refreshToken')
+  if (!refreshToken) return false
+
+  const res = await fetch('/api/auth/refresh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  })
+
+  if (!res.ok) return false
+
+  const data = await res.json()
+  accessToken = data.accessToken
+  localStorage.setItem('refreshToken', data.refreshToken)
+  return true
+}
+```
+
+### Démarrage de l'application (reload de page)
+
+```javascript
+// main.js — au chargement de l'app
+async function init() {
+  const refreshToken = localStorage.getItem('refreshToken')
+  if (!refreshToken) {
+    redirectToLogin()
+    return
+  }
+
+  try {
+    const { data } = await axios.post('/api/auth/refresh', { refreshToken })
+    accessToken = data.accessToken
+    localStorage.setItem('refreshToken', data.refreshToken)
+    // L'utilisateur est restauré sans re-login
+  } catch {
+    localStorage.removeItem('refreshToken')
+    redirectToLogin()
+  }
+}
+```
+
+L'utilisateur ne voit pas le login si son `refreshToken` est encore valide — même après F5.
+
+### Migration — nouvelle table
+
+```yaml
+# 017-create-refresh-tokens.yaml
+databaseChangeLog:
+  - changeSet:
+      id: 017-create-refresh-tokens
+      author: formation
+      changes:
+        - createTable:
+            tableName: refresh_tokens
+            columns:
+              - column: { name: id, type: BIGSERIAL, constraints: { primaryKey: true } }
+              - column: { name: token, type: VARCHAR(255), constraints: { nullable: false, unique: true } }
+              - column: { name: utilisateur_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: expiration, type: TIMESTAMP, constraints: { nullable: false } }
+              - column: { name: revoque, type: BOOLEAN, defaultValueBoolean: false }
+        - addForeignKeyConstraint:
+            baseTableName: refresh_tokens
+            baseColumnNames: utilisateur_id
+            referencedTableName: utilisateurs
+            referencedColumnNames: id
+            constraintName: fk_refresh_token_utilisateur
+            onDelete: CASCADE
+```
+
+### Entité
+
+```java
+@Entity
+@Table(name = "refresh_tokens")
+public class RefreshTokenEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String token;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "utilisateur_id", nullable = false)
+    private UtilisateurEntity utilisateur;
+
+    @Column(nullable = false)
+    private LocalDateTime expiration;
+
+    @Column(nullable = false)
+    private boolean revoque = false;
+
+    public boolean isExpire() {
+        return LocalDateTime.now().isAfter(expiration);
+    }
+}
+```
+
+### Service
+
+```java
+@Service
+@RequiredArgsConstructor
+public class RefreshTokenService {
+
+    private final RefreshTokenRepository refreshTokenRepository;
+
+    @Value("${app.jwt.refresh-expiration-days:7}")
+    private int refreshExpirationDays;
+
+    public RefreshTokenEntity creer(UtilisateurEntity utilisateur) {
+        // Invalider les anciens tokens de cet utilisateur (rotation)
+        refreshTokenRepository.revoquerParUtilisateur(utilisateur.getId());
+
+        RefreshTokenEntity token = new RefreshTokenEntity();
+        token.setToken(UUID.randomUUID().toString());
+        token.setUtilisateur(utilisateur);
+        token.setExpiration(LocalDateTime.now().plusDays(refreshExpirationDays));
+        return refreshTokenRepository.save(token);
+    }
+
+    public RefreshTokenEntity valider(String token) {
+        RefreshTokenEntity rt = refreshTokenRepository.findByToken(token)
+            .orElseThrow(() -> new ResetTokenInvalidException("Refresh token introuvable"));
+
+        if (rt.isRevoque() || rt.isExpire()) {
+            throw new ResetTokenInvalidException("Refresh token expiré ou révoqué");
+        }
+        return rt;
+    }
+}
+```
+
+### Endpoint
+
+```java
+// AuthController.java
+@PostMapping("/refresh")
+public AuthResponse refresh(@RequestBody RefreshRequest request) {
+    RefreshTokenEntity rt = refreshTokenService.valider(request.getRefreshToken());
+    String newAccessToken = jwtService.generateToken(rt.getUtilisateur());
+    return new AuthResponse(newAccessToken);
+}
+
+// Logout — invalide le refreshToken
+@PostMapping("/logout")
+public ResponseEntity<Void> logout(@RequestBody RefreshRequest request) {
+    refreshTokenService.revoquer(request.getRefreshToken());
+    return ResponseEntity.noContent().build();
+}
+```
+
+### Réponse login enrichie
+
+```json
+{
+  "accessToken": "eyJ...",
+  "refreshToken": "a3f7b8c9-1234-5678-abcd-ef0123456789",
+  "expiresIn": 3600
+}
+```
+
+### Pourquoi rotation des refresh tokens ?
+
+Si un `refreshToken` est volé, l'attaquant peut obtenir des `accessTokens` indéfiniment. Avec la rotation, chaque utilisation du `refreshToken` en émet un nouveau et invalide l'ancien. Si l'attaquant utilise le token en premier, la prochaine tentative légitime échoue → l'utilisateur est alerté.
+
+---
+
+## 🛡️ Aller plus loin : Protection brute-force
+
+### Pourquoi ?
+
+Sans protection, un attaquant peut tenter des milliers de combinaisons email/mot de passe sans être bloqué. BCrypt ralentit chaque tentative (~100ms) mais n'empêche pas un volume élevé de requêtes parallèles.
+
+### Stratégie : compteur en base
+
+Stocker sur `UtilisateurEntity` le nombre de tentatives échouées et la date de déblocage :
+
+```java
+// UtilisateurEntity.java — colonnes à ajouter
+@Column(nullable = false)
+private int tentativesEchouees = 0;
+
+@Column
+private LocalDateTime blocageJusqua;
+
+public boolean estBloque() {
+    return blocageJusqua != null && LocalDateTime.now().isBefore(blocageJusqua);
+}
+```
+
+```yaml
+# 018-add-brute-force-columns.yaml
+databaseChangeLog:
+  - changeSet:
+      id: 018-add-brute-force-columns
+      author: formation
+      changes:
+        - addColumn:
+            tableName: utilisateurs
+            columns:
+              - column: { name: tentatives_echouees, type: INT, defaultValueNumeric: 0, constraints: { nullable: false } }
+              - column: { name: blocage_jusqu_a, type: TIMESTAMP }
+```
+
+### Logique dans AuthService
+
+```java
+private static final int MAX_TENTATIVES = 5;
+private static final int BLOCAGE_MINUTES = 15;
+
+public AuthResponse login(LoginRequest request) {
+    UtilisateurEntity utilisateur = utilisateurRepository.findByEmail(request.getEmail())
+        .orElseThrow(() -> new BadCredentialsException("Email ou mot de passe incorrect."));
+
+    // 1. Compte bloqué ?
+    if (utilisateur.estBloque()) {
+        throw new BadCredentialsException("Compte temporairement bloqué. Réessayez dans quelques minutes.");
+    }
+
+    // 2. Vérifier le mot de passe
+    if (!passwordEncoder.matches(request.getPassword(), utilisateur.getPassword())) {
+        enregistrerEchec(utilisateur);
+        throw new BadCredentialsException("Email ou mot de passe incorrect.");
+    }
+
+    // 3. Succès — réinitialiser le compteur
+    utilisateur.setTentativesEchouees(0);
+    utilisateur.setBlocageJusqua(null);
+    utilisateurRepository.save(utilisateur);
+
+    String token = jwtService.generateToken(utilisateur);
+    return new AuthResponse(token);
+}
+
+private void enregistrerEchec(UtilisateurEntity utilisateur) {
+    int tentatives = utilisateur.getTentativesEchouees() + 1;
+    utilisateur.setTentativesEchouees(tentatives);
+
+    if (tentatives >= MAX_TENTATIVES) {
+        utilisateur.setBlocageJusqua(LocalDateTime.now().plusMinutes(BLOCAGE_MINUTES));
+        log.warn("Compte {} bloqué après {} tentatives", utilisateur.getEmail(), tentatives);
+    }
+    utilisateurRepository.save(utilisateur);
+}
+```
+
+### Ce que ça retourne au client
+
+```json
+// 5e tentative échouée
+{
+  "type": "about:blank",
+  "title": "Authentification échouée",
+  "status": 401,
+  "detail": "Compte temporairement bloqué. Réessayez dans quelques minutes."
+}
+```
+
+**Important :** le message d'erreur est identique pour email inexistant et mot de passe incorrect — on ne révèle pas si l'email existe en base (enumeration attack).
+
+### Pourquoi pas de `@RateLimiter` Spring ?
+
+`@RateLimiter` (Resilience4j) limite les appels globalement, pas par utilisateur ou par IP. Un attaquant qui cible 1000 comptes différents avec 1 tentative chacun ne serait pas bloqué. Le compteur par compte cible le comportement suspect par cible.
+
+---
+
 ## 🧪 Tests
 
 ### Tester `JwtService` (test unitaire)
@@ -477,8 +934,10 @@ Le filtre s'applique à **toutes** les requêtes, y compris `/api/auth/login`. I
 1. ✅ Vous savez générer et valider un token JWT
 2. ✅ Vous savez configurer Spring Security pour protéger les endpoints
 3. ✅ Vous savez tester des endpoints sécurisés avec `@WithMockUser`
+4. ➕ Refresh token : `POST /auth/refresh` + rotation en base
+5. ➕ Brute-force : compteur de tentatives + blocage temporaire par compte
 
-**Prochaine étape** : Tests avancés — pyramide des tests, `@WebMvcTest`, `@DataJpaTest`, TestContainers.
+**Prochaine étape** : Gestion des erreurs & validation — `ProblemDetail` RFC 9457, `@Valid`, `@RestControllerAdvice`.
 
 ---
 

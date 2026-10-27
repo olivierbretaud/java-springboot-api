@@ -5,6 +5,7 @@ import com.formation.core.auth.dto.ChangePasswordRequest;
 import com.formation.core.auth.dto.ChangePasswordResponse;
 import com.formation.core.auth.dto.LoginRequest;
 import com.formation.core.auth.dto.ProfileResponse;
+import com.formation.core.auth.dto.RefreshRequest;
 import com.formation.core.auth.dto.ResetPasswordRequest;
 import com.formation.core.auth.dto.ResetPasswordResponse;
 import com.formation.core.auth.service.AuthService;
@@ -30,6 +31,18 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshRequest request) {
+        return ResponseEntity.ok(authService.refresh(request.getRefreshToken()));
+    }
+
+    @PostMapping("/logout")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest request) {
+        authService.logout(request.getRefreshToken());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/reset-password")

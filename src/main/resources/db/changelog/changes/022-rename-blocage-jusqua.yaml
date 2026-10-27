@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 022-rename-blocage-jusqua
+      author: formation
+      changes:
+        - renameColumn:
+            tableName: utilisateurs
+            oldColumnName: blocage_jusqu_a
+            newColumnName: blocage_jusqua
+            columnDataType: TIMESTAMP
