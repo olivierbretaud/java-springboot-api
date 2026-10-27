@@ -44,6 +44,9 @@ dependencies {
     // Spring Security
     implementation("org.springframework.boot:spring-boot-starter-security")
 
+    // Actuator (métriques, health, info)
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+
     // Mail
     implementation("org.springframework.boot:spring-boot-starter-mail")
 
