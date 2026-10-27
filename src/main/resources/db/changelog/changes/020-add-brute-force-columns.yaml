@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 020-add-brute-force-columns
+      author: formation
+      changes:
+        - addColumn:
+            tableName: utilisateurs
+            columns:
+              - column:
+                  name: tentatives_echouees
+                  type: INT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: blocage_jusqu_a
+                  type: TIMESTAMP

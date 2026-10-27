@@ -1,6 +1,7 @@
 package com.formation.engine.entities;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.List;
 
@@ -58,6 +59,16 @@ public class UtilisateurEntity implements UserDetails {
 
     @Column
     private LocalDateTime resetTokenExpiry;
+
+    @Column(nullable = false)
+    private int tentativesEchouees = 0;
+
+    @Column
+    private LocalDateTime blocageJusqua;
+
+    public boolean estBloque() {
+        return blocageJusqua != null && LocalDateTime.now(ZoneOffset.UTC).isBefore(blocageJusqua);
+    }
 
     @Override
     public String getUsername() {

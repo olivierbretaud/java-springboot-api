@@ -68,6 +68,12 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.UNAUTHORIZED, "Authentification échouée", "Email ou mot de passe incorrect.");
     }
 
+    // Compte bloqué après trop de tentatives
+    @ExceptionHandler(CompteBloqueException.class)
+    public ResponseEntity<ProblemDetail> handleCompteBloque(CompteBloqueException ex) {
+        return problem(HttpStatus.TOO_MANY_REQUESTS, "Compte bloqué", ex.getMessage());
+    }
+
     // Token de réinitialisation invalide ou expiré
     @ExceptionHandler(ResetTokenInvalidException.class)
     public ResponseEntity<ProblemDetail> handleResetTokenInvalid(ResetTokenInvalidException ex) {

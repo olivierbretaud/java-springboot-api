@@ -2,6 +2,7 @@ package com.formation.core.auth.controller;
 
 import com.formation.core.auth.dto.AuthResponse;
 import com.formation.core.auth.service.AuthService;
+import com.formation.core.auth.service.RefreshTokenService;
 import com.formation.engine.entities.RoleEntity;
 import com.formation.engine.entities.UtilisateurEntity;
 import com.formation.engine.exceptions.ResetTokenInvalidException;
@@ -20,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -43,17 +45,21 @@ class AuthControllerTest {
     @MockitoBean
     private com.formation.security.JwtService jwtService;
 
+    @MockitoBean
+    private RefreshTokenService refreshTokenService;
+
     // ── POST /auth/login ──────────────────────────────────────────────────────
 
     @Test
     void login_retourne_200_et_token_si_credentials_valides() throws Exception {
-        when(authService.login(any())).thenReturn(new AuthResponse("eyJ..."));
+        when(authService.login(any())).thenReturn(new AuthResponse("eyJ...", "refresh-uuid", 3600));
 
         mockMvc.perform(post("/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"alice@test.com\",\"motDePasse\":\"secret\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("eyJ..."));
+                .andExpect(jsonPath("$.token").value("eyJ..."))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-uuid"));
     }
 
     @Test
@@ -72,6 +78,41 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"pas-un-email\",\"motDePasse\":\"secret\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    // ── POST /auth/refresh ────────────────────────────────────────────────────
+
+    @Test
+    void refresh_retourne_200_et_nouveau_token_si_refresh_valide() throws Exception {
+        when(authService.refresh("refresh-uuid")).thenReturn(new AuthResponse("nouveau-token", "refresh-uuid", 3600));
+
+        mockMvc.perform(post("/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"refresh-uuid\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("nouveau-token"));
+    }
+
+    @Test
+    void refresh_retourne_400_si_refresh_token_absent() throws Exception {
+        mockMvc.perform(post("/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ── POST /auth/logout ─────────────────────────────────────────────────────
+
+    @Test
+    void logout_retourne_204_et_revoque_le_token() throws Exception {
+        doNothing().when(authService).logout("refresh-uuid");
+
+        mockMvc.perform(post("/auth/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"refresh-uuid\"}"))
+                .andExpect(status().isNoContent());
+
+        verify(authService).logout("refresh-uuid");
     }
 
     // ── POST /auth/reset-password ─────────────────────────────────────────────

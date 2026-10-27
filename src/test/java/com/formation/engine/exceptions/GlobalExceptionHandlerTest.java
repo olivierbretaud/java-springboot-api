@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -96,6 +97,18 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handlePropertyReferenceException_retourne_400_avec_type_attendu() {
+        PropertyReferenceException ex = mock(PropertyReferenceException.class);
+        when(ex.getPropertyName()).thenReturn("id");
+
+        ResponseEntity<ProblemDetail> response = handler.handlePropertyReference(ex);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody().getTitle()).isEqualTo("Paramètre de tri invalide");
+        assertThat(response.getBody().getDetail()).contains("'id'");
+    }
+
+    @Test
     void handleTypeIllegalArgumentException_retourne_409_avec_message() {
         IllegalArgumentException ex = mock(IllegalArgumentException.class);
         when(ex.getMessage()).thenReturn("Conflit d'email");
@@ -163,5 +176,16 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getTitle()).isEqualTo("Authentification échouée");
         assertThat(response.getBody().getDetail()).isEqualTo("Email ou mot de passe incorrect.");
         assertThat(response.getBody().getDetail()).doesNotContain("Bad credentials");
+    }
+
+    @Test
+    void handleCompteBloque_retourne_429_avec_message_bloquage() {
+        CompteBloqueException ex = new CompteBloqueException("Compte temporairement bloqué. Réessayez dans quelques minutes.");
+
+        ResponseEntity<ProblemDetail> response = handler.handleCompteBloque(ex);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(429);
+        assertThat(response.getBody().getTitle()).isEqualTo("Compte bloqué");
+        assertThat(response.getBody().getDetail()).contains("bloqué");
     }
 }
