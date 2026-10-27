@@ -35,7 +35,6 @@ import com.formation.engine.repositories.UtilisateurRepository;
 import jakarta.persistence.EntityNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
-@SuppressWarnings("null")
 class CommandeServiceTest {
 
     @Mock private CommandeRepository commandeRepository;

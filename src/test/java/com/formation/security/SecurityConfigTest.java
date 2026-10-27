@@ -25,7 +25,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(SecurityConfigTest.MinimalController.class)
 @Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, CustomAccessDeniedHandler.class})
-@SuppressWarnings("null")
 class SecurityConfigTest {
 
     @Autowired

@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -88,7 +89,7 @@ class GlobalExceptionHandlerTest {
     void handleTypeMismatch_retourne_400_avec_type_attendu() {
         MethodArgumentTypeMismatchException ex = mock(MethodArgumentTypeMismatchException.class);
         when(ex.getName()).thenReturn("id");
-        when(ex.getRequiredType()).thenReturn((Class) Long.class);
+        doReturn(Long.class).when(ex).getRequiredType();
 
         ResponseEntity<Map<String, Object>> response = handler.handleTypeMismatch(ex);
 

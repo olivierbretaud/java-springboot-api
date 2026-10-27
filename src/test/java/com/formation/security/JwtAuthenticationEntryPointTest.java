@@ -31,8 +31,9 @@ class JwtAuthenticationEntryPointTest {
         entryPoint.commence(request, response, new AuthenticationException("Non autorisé") {});
 
         String body = response.getContentAsString();
-        assertThat(body).contains("Non autorisé");
-        assertThat(body).contains("autorisé");
-        assertThat(body).contains("401");
+            assertThat(body)
+                .contains("Non autorisé")
+                .contains("autorisé")
+                .contains("401");
     }
 }

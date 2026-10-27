@@ -10,7 +10,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.jsonwebtoken.ExpiredJwtException;
 
-@SuppressWarnings("null")
 class JwtServiceTest {
 
     private JwtService jwtService;
@@ -54,8 +53,9 @@ class JwtServiceTest {
     void isTokenValid_leve_exception_pour_token_expire() {
         ReflectionTestUtils.setField(jwtService, "expirationMs", -1000L);
         String token = jwtService.generateToken(utilisateur("carol@test.com"));
+        UserDetails carol = utilisateur("carol@test.com");
 
-        assertThatThrownBy(() -> jwtService.isTokenValid(token, utilisateur("carol@test.com")))
+        assertThatThrownBy(() -> jwtService.isTokenValid(token, carol))
             .isInstanceOf(ExpiredJwtException.class);
     }
 
