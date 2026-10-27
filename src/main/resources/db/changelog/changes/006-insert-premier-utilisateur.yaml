@@ -11,7 +11,7 @@ databaseChangeLog:
                   value: "admin@formation.com"
               - column:
                   name: mot_de_passe
-                  value: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+                  value: "PLACEHOLDER"
               - column:
                   name: nom
                   value: "Admin"

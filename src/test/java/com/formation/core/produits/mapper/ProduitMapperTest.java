@@ -4,6 +4,7 @@ import com.formation.core.produits.dto.ProduitDto;
 import com.formation.core.produits.dto.ProduitCreatePayload;
 import com.formation.engine.entities.CategorieEntity;
 import com.formation.engine.entities.ProduitEntity;
+
 import java.math.BigDecimal;
 import com.formation.engine.utils.EntityMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,11 +12,18 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;   
 
 class ProduitMapperTest {
 
     private ProduitMapper produitMapper;
+
+    private CategorieEntity categorie(Long id, String nom) {
+        CategorieEntity s = new CategorieEntity();
+        s.setId(id);
+        s.setNom(nom);
+        return s;
+    }
 
     @BeforeEach
     void setUp() {
@@ -27,11 +35,13 @@ class ProduitMapperTest {
         ProduitEntity entity = new ProduitEntity();
         entity.setId(1L);
         entity.setNom("Banane");
+        entity.setCategorie(categorie(10L, "Fruits"));
 
         ProduitDto dto = produitMapper.toProduitDto(entity);
 
         assertThat(dto.getId()).isEqualTo(1L);
         assertThat(dto.getNom()).isEqualTo("Banane");
+        assertThat(dto.getCategorieName()).isEqualTo("Fruits");
     }
 
     @Test

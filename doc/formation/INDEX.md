@@ -2,21 +2,22 @@
 
 ## Navigation rapide
 
-| Étape | Titre | Concepts clés | Durée | Statut |
-|-------|-------|---------------|-------|--------|
-| 1 | [Hello World API](./ETAPE_1.md) | `@RestController`, `@GetMapping`, `ResponseEntity` | 30 min | ✅ |
-| 2 | [CRUD Produits](./ETAPE_2.md) | `@Entity`, `@Service`, DTO/Payload, Mapper, Liquibase | 1h–1h30 | ✅ |
-| 3 | [Filtres et pagination](./ETAPE_3.md) | `Specification`, `PageParams`, `PageResponse<T>` | 1h–2h | ✅ |
-| 4 | [Relations JPA](./ETAPE_4.md) | `@OneToMany`, `@ManyToOne`, `FetchType`, cascade | 1h–2h | ✅ |
-| 5 | [Authentification & JWT](./ETAPE_5.md) | Spring Security, JWT, BCrypt, `@WithMockUser` | 2h–3h | ✅ |
-| 6 | [Tests avancés](./ETAPE_6.md) | pyramide des tests, `@WebMvcTest`, `@DataJpaTest`, TestContainers | 2h–3h | ✅ |
+| Étape | Titre | Concepts clés | Statut |
+|-------|-------|---------------|--------|
+| 1 | [Hello World API](./ETAPE_1.md) | `@RestController`, `@GetMapping`, `ResponseEntity` | ✅ |
+| 2 | [CRUD Produits](./ETAPE_2.md) | `@Entity`, `@Service`, DTO/Payload, Mapper, Liquibase | ✅ |
+| 3 | [Filtres et pagination](./ETAPE_3.md) | `Specification`, `PageParams`, `PageResponse<T>` | ✅ |
+| 4 | [Relations JPA](./ETAPE_4.md) | `@OneToMany`, `@ManyToOne`, `FetchType`, cascade | ✅ |
+| 5 | [Authentification & JWT](./ETAPE_5.md) | Spring Security, JWT, BCrypt, `@WithMockUser` | ✅ |
+| 6 | [Tests avancés](./ETAPE_6.md) | pyramide des tests, `@WebMvcTest`, `@DataJpaTest`, TestContainers | ✅ |
+| 7 | [CI et Docker](./ETAPE_7.md) | Dockerfile multi-stage, docker-compose, GitHub Actions, SonarCloud | ✅ |
 
 ---
 
 ## Parcours recommandé
 
 ```
-ETAPE_1 → ETAPE_2 → ETAPE_3 → ETAPE_4 → ETAPE_5 → ETAPE_6
+ETAPE_1 → ETAPE_2 → ETAPE_3 → ETAPE_4 → ETAPE_5 → ETAPE_6 → ETAPE_7
 ```
 
 Chaque étape s'appuie sur la précédente. Lisez-les dans l'ordre.
