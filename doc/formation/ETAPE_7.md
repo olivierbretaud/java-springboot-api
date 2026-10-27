@@ -46,8 +46,10 @@ Push sur main / develop
 │  2. Installer Java 17            │
 │  3. Cache Gradle + SonarCloud    │
 │  4. Build (sans tests)           │
-│  5. Tests + couverture JaCoCo    │
-│  6. Analyse SonarCloud           │
+│  5. Générer verification-metadata│
+│  6. Tests + couverture JaCoCo    │
+│  7. Analyse SonarCloud           │
+│  8. Lien rapport SonarCloud      │
 └──────────────────────────────────┘
 ```
 
@@ -232,6 +234,8 @@ jobs:
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
+          restore-keys: |
+            ${{ runner.os }}-sonar
 
       - name: Rendre gradlew exécutable
         run: chmod +x gradlew
@@ -239,11 +243,19 @@ jobs:
       - name: Build
         run: ./gradlew build -x test
 
+      - name: Générer verification-metadata.xml
+        run: ./gradlew --write-verification-metadata sha256 help --no-daemon
+
       - name: Tests, couverture et analyse SonarCloud
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: ./gradlew test jacocoTestReport sonar -Dsonar.branch.name=${{ github.ref_name }}
+
+      - name: Lien vers le rapport SonarCloud
+        run: |
+          echo "### Rapport SonarCloud" >> $GITHUB_STEP_SUMMARY
+          echo "[Voir le rapport](https://sonarcloud.io/summary/new_code?id=olivierbretaud_java-springboot-api&branch=${{ github.ref_name }})" >> $GITHUB_STEP_SUMMARY
 ```
 
 ### Rôle de chaque step
@@ -256,7 +268,9 @@ jobs:
 | `cache SonarCloud` | Même principe : les données d'analyse SonarCloud sont lourdes à retélécharger |
 | `chmod +x gradlew` | Le wrapper Gradle n'a pas le bit exécutable dans le dépôt — il faut l'ajouter avant de pouvoir le lancer |
 | `build -x test` | Compile le code sans lancer les tests. Échoue tôt si le code ne compile pas |
+| `--write-verification-metadata sha256` | Régénère le fichier `gradle/verification-metadata.xml` avec les checksums SHA-256 des dépendances — garantit l'intégrité de la chaîne de build |
 | `test jacocoTestReport sonar` | Lance les tests, génère le rapport de couverture XML, envoie tout à SonarCloud |
+| `Lien vers le rapport SonarCloud` | Ajoute un lien cliquable vers le rapport dans le résumé du run GitHub Actions |
 
 ### Déclencheurs
 
@@ -295,6 +309,14 @@ sonarqube {
         property 'sonar.java.binaries', 'build/classes/java/main'
     }
 }
+
+tasks.named('sonarqube').configure {
+    dependsOn tasks.named('jacocoTestReport')
+}
+
+tasks.named('sonar').configure {
+    dependsOn tasks.named('jacocoTestReport')
+}
 ```
 
 Ce fichier n'est appliqué qu'en CI grâce à la condition dans `build.gradle.kts` :
@@ -317,14 +339,7 @@ Le plugin SonarQube est déclaré dans le bloc `plugins {}` principal (toujours 
 
 ### Lien vers le rapport
 
-Après chaque run CI, un lien est posté dans le résumé GitHub :
-
-```yaml
-- name: Lien vers le rapport SonarCloud
-  run: |
-    echo "### Rapport SonarCloud" >> $GITHUB_STEP_SUMMARY
-    echo "[Voir le rapport](https://sonarcloud.io/summary/new_code?id=olivierbretaud_java-springboot-api&branch=${{ github.ref_name }})" >> $GITHUB_STEP_SUMMARY
-```
+Après chaque run CI, le step `Lien vers le rapport SonarCloud` ajoute un lien cliquable dans le résumé du run GitHub Actions (onglet **Summary**) pointant vers le rapport SonarCloud de la branche courante.
 
 ---
 
@@ -393,4 +408,4 @@ CI GitHub Actions
 
 ---
 
-*Dernière mise à jour : 2026-10-23*
+*Dernière mise à jour : 2026-10-27*
