@@ -1,587 +1,463 @@
-# ÉTAPE 6 : Tests avancés
+# ÉTAPE 6 : Gestion des erreurs & validation
 
 ## 📚 Table des matières
 
 1. [Objectif](#objectif)
 2. [Concepts clés](#concepts-clés)
-3. [Architecture](#architecture)
-4. [Fichiers implémentés](#fichiers-implémentés)
-5. [Tests](#tests)
-6. [Prochaines étapes](#prochaines-étapes)
+3. [Validation des entrées (@Valid + Bean Validation)](#validation-des-entrées)
+4. [Exceptions métier custom](#exceptions-métier-custom)
+5. [Réponses d'erreur standardisées (ProblemDetail RFC 9457)](#problemdetail-rfc-9457)
+6. [Gestion centralisée (@ControllerAdvice)](#controlleradvice)
+7. [Fichiers implémentés](#fichiers-implémentés)
+8. [Pièges courants](#pièges-courants)
+9. [Récapitulatif](#récapitulatif)
 
 ---
 
 ## 🎯 Objectif
 
-**Comprendre la pyramide des tests et écrire chaque couche au bon niveau.**
+**Retourner des erreurs claires, cohérentes et sécurisées à chaque couche de l'application.**
 
 Après cette étape, vous allez pouvoir :
-- ✅ Différencier tests unitaires, tests de slice et tests d'intégration
-- ✅ Tester un Controller avec `@WebMvcTest` sans démarrer toute l'application
-- ✅ Tester un Repository avec `@DataJpaTest` sur une vraie base de données
-- ✅ Remplacer H2 par PostgreSQL dans les tests avec **TestContainers**
-- ✅ Lire les tests existants du projet et comprendre pourquoi chaque approche a été choisie
-
-### La pyramide des tests
-
-```
-                    ┌──────────────┐
-                    │  Intégration │  peu nombreux, lents, coûteux
-                    │  (E2E / API) │  TestContainers + Spring complet
-                    └──────┬───────┘
-                    ┌──────┴────────────┐
-                    │   Slice tests     │  ciblés, contexte partiel
-                    │  @WebMvcTest      │  @WebMvcTest, @DataJpaTest
-                    │  @DataJpaTest     │
-                    └──────┬────────────┘
-          ┌────────────────┴──────────────────────┐
-          │           Tests unitaires             │  nombreux, rapides, fiables
-          │  @ExtendWith(MockitoExtension.class)  │  pas de Spring, Mockito pur
-          │  new Mapper(), new Specification()    │
-          └───────────────────────────────────────┘
-```
-
-**Règle** : la majorité des tests doit être en bas de la pyramide. Plus on monte, plus on teste peu mais de bout en bout.
+- ✅ Valider les données entrantes avec `@Valid` et les annotations Bean Validation
+- ✅ Retourner des erreurs au format standard RFC 9457 (`ProblemDetail`)
+- ✅ Centraliser tous les `@ExceptionHandler` dans un seul `@RestControllerAdvice`
+- ✅ Distinguer erreurs métier (404, 409) et erreurs techniques (500)
+- ✅ Comprendre pourquoi ne jamais exposer la stacktrace en production
 
 ---
 
 ## 📖 Concepts clés
 
-### 1. Tests unitaires — pas de Spring, pas de base de données
+### Pourquoi standardiser les erreurs ?
 
-Pour les classes sans dépendances Spring (Mapper, Specification, logique métier isolée) :
+Sans standardisation, chaque endpoint retourne un format différent :
 
-```java
-class ProduitMapperTest {
+```json
+// Endpoint A
+{ "msg": "not found" }
 
-    private ProduitMapper produitMapper;
+// Endpoint B
+{ "error": true, "code": 404, "description": "..." }
 
-    @BeforeEach
-    void setUp() {
-        produitMapper = new ProduitMapper(new EntityMapper()); // instanciation directe
-    }
-
-    @Test
-    void toProduitDto_mappe_correctement_entity_vers_dto() {
-        ProduitEntity entity = new ProduitEntity();
-        entity.setId(1L);
-        entity.setNom("Banane");
-
-        ProduitDto dto = produitMapper.toProduitDto(entity);
-
-        assertThat(dto.getId()).isEqualTo(1L);
-        assertThat(dto.getNom()).isEqualTo("Banane");
-    }
-}
+// Endpoint C (Spring par défaut sans config)
+{ "timestamp": "...", "status": 404, "error": "Not Found", "path": "..." }
 ```
 
-Pas d'annotation de classe. Démarrage immédiat, aucune infrastructure requise.
+Le client frontend ou le consommateur API ne peut pas écrire de code générique pour gérer ces erreurs. Un format unique résout ce problème.
 
-### 2. Tests de service — Mockito pur avec `@ExtendWith`
+### La pyramide des codes HTTP
 
-Pour tester un Service qui dépend d'un Repository, on **mocke** le Repository :
+| Code | Signification | Exemple |
+|------|--------------|---------|
+| 400 | Données invalides envoyées par le client | Champ manquant, type incorrect |
+| 401 | Non authentifié | Token absent ou expiré |
+| 403 | Authentifié mais non autorisé | Rôle insuffisant |
+| 404 | Ressource introuvable | `GET /produits/999` |
+| 409 | Conflit métier | Email déjà utilisé, statut incompatible |
+| 422 | Entité non traitable (variante de 400) | Rarement utilisé avec Bean Validation |
+| 500 | Erreur interne — bug du serveur | NullPointerException non gérée |
 
-```java
-@ExtendWith(MockitoExtension.class)          // active Mockito, pas Spring
-class ProduitServiceTest {
+### Bean Validation vs validation métier
 
-    @Mock
-    private ProduitRepository produitRepository; // faux repository
+| Type | Où | Exemple |
+|------|----|---------|
+| Bean Validation | DTO / `@RequestBody` | `@NotBlank`, `@Min`, `@Email` |
+| Validation métier | Service | "Un produit avec ce nom existe déjà" |
 
-    @Mock
-    private ProduitMapper produitMapper;
-
-    @InjectMocks
-    private ProduitService produitService;       // le vrai service, injecté avec les mocks
-
-    @Test
-    void createProduit_leve_exception_si_categorie_inexistante() {
-        ProduitCreatePayload request = new ProduitCreatePayload();
-        request.setIdCategorie(99L);
-
-        when(categorieRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThrows(EntityNotFoundException.class,
-                () -> produitService.createProduit(request));
-    }
-}
-```
-
-**Avantages** : très rapide, teste la logique métier sans la base de données ni Spring.
-
-### 3. `@WebMvcTest` — tester le Controller seul
-
-Démarre uniquement la couche Web (serialisation JSON, validation, routing HTTP). Le service est **mocké**.
-
-```java
-@WebMvcTest(ProduitController.class)   // charge UNIQUEMENT le controller + Spring MVC
-class ProduitControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;           // client HTTP simulé
-
-    @MockitoBean                       // Spring Boot 3.4+ (remplace @MockBean)
-    private IProduitService produitService;
-
-    @Test
-    void createProduit_retourne_400_si_nom_vide() throws Exception {
-        mockMvc.perform(post("/api/produit")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"nom\":\"\",\"prix\":12.50,\"idCategorie\":1}"))
-                .andExpect(status().isBadRequest()); // validation Bean Validation
-    }
-
-    @Test
-    void getProduitById_retourne_404_si_inexistant() throws Exception {
-        when(produitService.getProduitById(99L))
-                .thenThrow(new EntityNotFoundException("Produit introuvable : 99"));
-
-        mockMvc.perform(get("/api/produit/99"))
-                .andExpect(status().isNotFound()); // GlobalExceptionHandler
-    }
-}
-```
-
-**Ce qu'on teste ici** : routing, validation des payloads, codes HTTP, sérialisation JSON, `GlobalExceptionHandler`.  
-**Ce qu'on ne teste pas** : la logique métier (c'est le rôle des tests de service).
-
-### 4. `@DataJpaTest` — tester le Repository avec une vraie base
-
-Démarre uniquement la couche JPA (entités, repositories, migrations Liquibase). Pas de controllers, pas de services.
-
-```java
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE) // utilise notre config
-class CommandeRepositoryTest {
-
-    @Autowired
-    private TestEntityManager em;      // utilitaire pour préparer les données de test
-
-    @Autowired
-    private CommandeRepository commandeRepository;
-
-    @Test
-    void findByUtilisateurId_retourne_commandes_de_cet_utilisateur() {
-        UtilisateurEntity utilisateur = em.persist(unUtilisateur());
-        em.persist(uneCommande(utilisateur));
-        em.flush();
-
-        List<CommandeEntity> commandes = commandeRepository.findByUtilisateurId(utilisateur.getId());
-
-        assertThat(commandes).hasSize(1);
-    }
-}
-```
-
-**Ce qu'on teste ici** : requêtes `@Query`, contraintes FK en base, cascade JPA, comportement réel de Hibernate.
-
-### 5. TestContainers — PostgreSQL réel dans les tests
-
-Par défaut, `@DataJpaTest` utilise une base H2 en mémoire. Problème : H2 ne se comporte pas exactement comme PostgreSQL (types, fonctions SQL, contraintes).
-
-**TestContainers** lance un vrai container Docker PostgreSQL pendant les tests :
-
-```xml
-<!-- build.gradle.kts -->
-testImplementation("org.springframework.boot:spring-boot-testcontainers")
-testImplementation("org.testcontainers:postgresql")
-testImplementation("org.testcontainers:junit-jupiter")
-```
-
-```java
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Testcontainers
-class CommandeRepositoryTest {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16")
-            .withDatabaseName("formation_test")
-            .withUsername("test")
-            .withPassword("test");
-
-    @DynamicPropertySource
-    static void configureDataSource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url",    postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-    }
-
-    // Les tests s'exécutent contre un vrai PostgreSQL
-}
-```
-
-**`static`** sur le container = il est démarré une seule fois pour toute la classe de test (plus rapide).  
-**`@DynamicPropertySource`** = injecte l'URL du container dans la config Spring au démarrage.
+Bean Validation s'arrête au format ; la validation métier vérifie les règles du domaine.
 
 ---
 
-## 🏗️ Architecture
+## ✅ Validation des entrées
 
-### Répertoire des tests
+### Annotations disponibles
+
+```java
+public class ProduitCreatePayload {
+
+    @NotBlank(message = "Le nom est obligatoire")
+    @Size(max = 100, message = "Le nom ne peut pas dépasser 100 caractères")
+    private String nom;
+
+    @Size(max = 500)
+    private String description;
+
+    @NotNull(message = "Le prix est obligatoire")
+    @DecimalMin(value = "0.0", inclusive = false, message = "Le prix doit être positif")
+    private BigDecimal prix;
+
+    @Min(value = 1, message = "L'unité par packaging doit être au moins 1")
+    private Integer uniteParPackaging;
+
+    @NotNull(message = "La catégorie est obligatoire")
+    private Long idCategorie;
+}
+```
+
+### Déclencher la validation dans le controller
+
+```java
+@PostMapping
+public ResponseEntity<ProduitResponse> creer(@Valid @RequestBody ProduitCreatePayload payload) {
+    // ...
+}
+```
+
+**`@Valid` est obligatoire.** Sans lui, les annotations sur le DTO sont déclarées mais jamais évaluées — aucune erreur n'est levée.
+
+### Valider une liste imbriquée
+
+```java
+public class CommandeCreatePayload {
+
+    @NotEmpty(message = "La commande doit contenir au moins une ligne")
+    @Valid  // propage la validation sur chaque élément de la liste
+    private List<LigneCommandePayload> lignes;
+}
+```
+
+`@Valid` sur la liste déclenche la validation de chaque `LigneCommandePayload`. Sans lui, seul le `@NotEmpty` sur la liste elle-même est vérifié.
+
+---
+
+## 💥 Exceptions métier custom
+
+Pour les cas métier non couverts par les exceptions standard, on crée des classes dédiées.
+
+### `CommandeNonSupprimableException`
+
+```java
+public class CommandeNonSupprimableException extends RuntimeException {
+
+    public CommandeNonSupprimableException(Long id, String statut) {
+        super("La commande " + id + " ne peut pas être supprimée (statut : " + statut + ")");
+    }
+}
+```
+
+Levée dans le service :
+```java
+if (!commande.getStatut().equals(StatutCommande.EN_ATTENTE)) {
+    throw new CommandeNonSupprimableException(id, commande.getStatut().name());
+}
+```
+
+Gérée dans le handler → 409 :
+```java
+@ExceptionHandler(CommandeNonSupprimableException.class)
+public ResponseEntity<ProblemDetail> handleCommandeNonSupprimable(CommandeNonSupprimableException ex) {
+    return problem(HttpStatus.CONFLICT, "Opération impossible", ex.getMessage());
+}
+```
+
+### `ResetTokenInvalidException`
+
+```java
+public class ResetTokenInvalidException extends RuntimeException {
+    public ResetTokenInvalidException(String message) {
+        super(message);
+    }
+}
+```
+
+Gérée dans le handler → 400.
+
+### Pourquoi des exceptions custom plutôt qu'un code de retour ?
+
+```java
+// ❌ Le service retourne null ou un boolean — le controller doit interpréter
+if (!commandeService.supprimer(id)) {
+    return ResponseEntity.status(409).build();
+}
+
+// ✅ Le service lève une exception — le handler la capte automatiquement
+commandeService.supprimer(id); // lève CommandeNonSupprimableException si impossible
+```
+
+La deuxième approche garde le controller et le service simples ; toute la logique de mapping vers HTTP est dans le handler.
+
+---
+
+## 📐 ProblemDetail RFC 9457
+
+### Pourquoi RFC 9457 ?
+
+C'est le standard IETF pour les réponses d'erreur HTTP. Spring Boot 3+ le supporte nativement. Un client qui connaît le standard peut traiter les erreurs de n'importe quelle API compatible.
+
+### Activer le support Spring Boot — `application.yml`
+
+```yaml
+spring:
+  mvc:
+    problemdetails:
+      enabled: true
+```
+
+Cette propriété active la gestion automatique des erreurs Spring (404, 405, 415…) au format ProblemDetail. Nos handlers custom utilisent déjà `ProblemDetail` directement.
+
+### Structure d'une réponse ProblemDetail
+
+```json
+{
+  "type": "about:blank",
+  "title": "Ressource introuvable",
+  "status": 404,
+  "detail": "Produit 42 introuvable",
+  "instance": "/api/produits/42"
+}
+```
+
+| Champ | Rôle |
+|-------|------|
+| `type` | URI décrivant le type d'erreur (par convention `about:blank` si non documenté) |
+| `title` | Libellé court et stable — ne change pas entre appels |
+| `status` | Code HTTP |
+| `detail` | Message humain — peut changer, contient le contexte de l'erreur |
+| `instance` | URL de la requête qui a provoqué l'erreur |
+
+### Avant / Après la migration
+
+**Avant (Map custom) :**
+```json
+{
+  "status": 404,
+  "error": "Ressource introuvable",
+  "message": "Produit 42 introuvable",
+  "timestamp": "2026-10-27T14:32:11.456"
+}
+```
+
+**Après (ProblemDetail RFC 9457) :**
+```json
+{
+  "type": "about:blank",
+  "title": "Ressource introuvable",
+  "status": 404,
+  "detail": "Produit 42 introuvable"
+}
+```
+
+Le format est désormais interopérable avec tout client qui respecte la RFC.
+
+---
+
+## 🎯 @ControllerAdvice
+
+### Principe
+
+Sans `@RestControllerAdvice`, chaque controller devrait gérer ses propres exceptions — du code dupliqué, des formats inconsistants. Un seul `@RestControllerAdvice` centralise tout :
 
 ```
-src/test/java/com/formation/
-│
-├── engine/
-│   ├── utils/EntityMapperTest.java              ← Unitaire (new EntityMapper())
-│   └── exceptions/GlobalExceptionHandlerTest.java ← Unitaire
-│
-├── core/produits/
-│   ├── mapper/ProduitMapperTest.java            ← Unitaire (new ProduitMapper())
-│   ├── specification/ProduitSpecificationTest.java ← Unitaire (Mockito criteria)
-│   ├── service/ProduitServiceTest.java          ← @ExtendWith(MockitoExtension)
-│   └── controller/ProduitControllerTest.java    ← @WebMvcTest
-│
-└── core/commandes/                              ← Nouveaux tests ETAPE_5
-    ├── mapper/CommandeMapperTest.java           ← Unitaire
-    ├── service/CommandeServiceTest.java         ← @ExtendWith(MockitoExtension)
-    ├── controller/CommandeControllerTest.java   ← @WebMvcTest
-    └── repository/CommandeRepositoryTest.java   ← @DataJpaTest + TestContainers
+Controller A  ──┐
+Controller B  ──┼──► GlobalExceptionHandler ──► réponse ProblemDetail uniforme
+Controller C  ──┘
 ```
 
-### Quelle annotation pour quel besoin ?
+### Le handler complet — `GlobalExceptionHandler.java`
 
-```
-Besoin                              Annotation                  Vitesse
-─────────────────────────────────────────────────────────────────────────
-Tester mapper / specification       aucune (new MaClasse())     ⚡⚡⚡
-Tester logique service              @ExtendWith(Mockito)        ⚡⚡⚡
-Tester routing / validation HTTP    @WebMvcTest                 ⚡⚡
-Tester requêtes JPA / contraintes   @DataJpaTest + Testcontainers ⚡
-Tester tout de bout en bout         @SpringBootTest             🐢
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    // 400 — @RequestParam / @PathVariable
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ProblemDetail> handleConstraintViolation(ConstraintViolationException ex) {
+        String detail = ex.getConstraintViolations().iterator().next().getMessage();
+        return problem(HttpStatus.BAD_REQUEST, "Paramètre invalide", detail);
+    }
+
+    // 400 — @RequestBody avec @Valid (liste les champs invalides)
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ProblemDetail> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
+        String detail = ex.getBindingResult().getFieldErrors().stream()
+                .map(f -> f.getField() + " : " + f.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        return problem(HttpStatus.BAD_REQUEST, "Données invalides", detail);
+    }
+
+    // 400 — String à la place d'un Long dans l'URL
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String detail = "Le paramètre '" + ex.getName() + "' doit être de type "
+                + ex.getRequiredType().getSimpleName();
+        return problem(HttpStatus.BAD_REQUEST, "Type invalide", detail);
+    }
+
+    // 401 — email ou mot de passe incorrect
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ProblemDetail> handleBadCredentials(BadCredentialsException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Authentification échouée", "Email ou mot de passe incorrect.");
+    }
+
+    // 403 — @PreAuthorize échoue
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException ex) {
+        return problem(HttpStatus.FORBIDDEN, "Accès refusé", "Vous n'avez pas les droits nécessaires.");
+    }
+
+    // 404 — EntityNotFoundException
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleEntityNotFound(EntityNotFoundException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Ressource introuvable", ex.getMessage());
+    }
+
+    // 409 — conflit métier (email déjà utilisé…)
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ProblemDetail> handleIllegalArgument(IllegalArgumentException ex) {
+        return problem(HttpStatus.CONFLICT, "Conflit", ex.getMessage());
+    }
+
+    // 500 — erreur base de données (le détail SQL ne doit jamais atteindre le client)
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<ProblemDetail> handleDataAccess(DataAccessException ex) {
+        log.error("Erreur base de données", ex);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erreur base de données",
+                "Une erreur est survenue lors de l'accès aux données.");
+    }
+
+    // 500 — filet de sécurité pour tout le reste
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ProblemDetail> handleGeneric(Exception ex) {
+        log.error("Erreur inattendue [{}] : {}", ex.getClass().getSimpleName(), ex.getMessage(), ex);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erreur interne", "Une erreur inattendue est survenue.");
+    }
+
+    private ResponseEntity<ProblemDetail> problem(HttpStatus status, String title, String detail) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, detail);
+        pd.setTitle(title);
+        pd.setType(URI.create("about:blank"));
+        return ResponseEntity.status(status).body(pd);
+    }
+}
 ```
 
 ---
 
 ## 💻 Fichiers implémentés
 
-### `CommandeControllerTest.java`
+### `GlobalExceptionHandler.java`
 
-```java
-@WebMvcTest(CommandeController.class)
-class CommandeControllerTest {
+Handler central : 10 cas couverts, retourne `ProblemDetail` pour chacun.
 
-    @Autowired
-    private MockMvc mockMvc;
+### `CommandeNonSupprimableException.java`
 
-    @MockitoBean
-    private ICommandeService commandeService;
+Exception levée quand une commande ne peut pas être supprimée selon son statut.
 
-    @Test
-    void creerCommande_retourne_201() throws Exception {
-        CommandeDto dto = new CommandeDto();
-        dto.setId(1L);
-        dto.setStatut(StatutCommande.EN_ATTENTE);
-        dto.setMontantTotal(new BigDecimal("25.98"));
+### `ResetTokenInvalidException.java`
 
-        when(commandeService.creerCommande(any(), anyLong())).thenReturn(dto);
+Exception levée quand un token de réinitialisation de mot de passe est invalide ou expiré.
 
-        mockMvc.perform(post("/api/commandes")
-                .param("utilisateurId", "1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"lignes\":[{\"idProduit\":1,\"quantite\":2}]}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.statut").value("EN_ATTENTE"))
-                .andExpect(jsonPath("$.montantTotal").value(25.98));
-    }
+### DTOs validés
 
-    @Test
-    void creerCommande_retourne_400_si_lignes_vides() throws Exception {
-        mockMvc.perform(post("/api/commandes")
-                .param("utilisateurId", "1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"lignes\":[]}"))
-                .andExpect(status().isBadRequest());
-    }
+| DTO | Contraintes |
+|-----|------------|
+| `ProduitCreatePayload` | `@NotBlank`, `@Size`, `@NotNull`, `@DecimalMin`, `@Min` |
+| `CommandeCreatePayload` | `@NotEmpty`, `@Valid` (cascade sur lignes) |
+| `LigneCommandePayload` | `@NotNull`, `@Min` |
+| `LoginRequest` | `@Email`, `@NotBlank` |
+| `UtilisateurCreatePayload` | `@NotBlank`, `@Email`, `@Size` |
+| `ChangePasswordRequest` | `@NotBlank`, `@Size` |
 
-    @Test
-    void creerCommande_retourne_404_si_utilisateur_inexistant() throws Exception {
-        when(commandeService.creerCommande(any(), anyLong()))
-                .thenThrow(new EntityNotFoundException("Utilisateur non trouvé"));
+### `application.yml` — ajout
 
-        mockMvc.perform(post("/api/commandes")
-                .param("utilisateurId", "99")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"lignes\":[{\"idProduit\":1,\"quantite\":1}]}"))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    void changerStatut_retourne_200() throws Exception {
-        CommandeDto dto = new CommandeDto();
-        dto.setId(1L);
-        dto.setStatut(StatutCommande.CONFIRMEE);
-
-        when(commandeService.changerStatut(1L, StatutCommande.CONFIRMEE)).thenReturn(dto);
-
-        mockMvc.perform(patch("/api/commandes/1/statut")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("\"CONFIRMEE\""))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.statut").value("CONFIRMEE"));
-    }
-}
+```yaml
+spring:
+  mvc:
+    problemdetails:
+      enabled: true
 ```
-
-### `CommandeServiceTest.java`
-
-```java
-@ExtendWith(MockitoExtension.class)
-class CommandeServiceTest {
-
-    @Mock private CommandeRepository commandeRepository;
-    @Mock private UtilisateurRepository utilisateurRepository;
-    @Mock private ProduitRepository produitRepository;
-    @Mock private CommandeMapper commandeMapper;
-
-    @InjectMocks
-    private CommandeService commandeService;
-
-    @Test
-    void creerCommande_calcule_montant_total() {
-        UtilisateurEntity utilisateur = new UtilisateurEntity();
-        utilisateur.setId(1L);
-
-        ProduitEntity produit = new ProduitEntity();
-        produit.setId(1L);
-        produit.setPrix(new BigDecimal("12.99"));
-
-        LigneCommandePayload ligne = new LigneCommandePayload();
-        ligne.setIdProduit(1L);
-        ligne.setQuantite(2);
-
-        CommandeCreatePayload payload = new CommandeCreatePayload();
-        payload.setLignes(List.of(ligne));
-
-        CommandeEntity commandeSauvegardee = new CommandeEntity();
-        CommandeDto dto = new CommandeDto();
-
-        when(utilisateurRepository.findById(1L)).thenReturn(Optional.of(utilisateur));
-        when(produitRepository.findById(1L)).thenReturn(Optional.of(produit));
-        when(commandeRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(commandeMapper.toCommandeDto(any())).thenReturn(dto);
-
-        commandeService.creerCommande(payload, 1L);
-
-        // Vérifie que save a été appelé avec le bon montant total
-        ArgumentCaptor<CommandeEntity> captor = ArgumentCaptor.forClass(CommandeEntity.class);
-        verify(commandeRepository).save(captor.capture());
-        assertThat(captor.getValue().getMontantTotal())
-                .isEqualByComparingTo(new BigDecimal("25.98")); // 12.99 × 2
-    }
-
-    @Test
-    void creerCommande_leve_exception_si_utilisateur_inexistant() {
-        when(utilisateurRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThrows(EntityNotFoundException.class,
-                () -> commandeService.creerCommande(new CommandeCreatePayload(), 99L));
-    }
-
-    @Test
-    void creerCommande_snapshot_le_prix_du_produit() {
-        UtilisateurEntity utilisateur = new UtilisateurEntity();
-        ProduitEntity produit = new ProduitEntity();
-        produit.setId(1L);
-        produit.setPrix(new BigDecimal("9.99"));
-
-        LigneCommandePayload lignePayload = new LigneCommandePayload();
-        lignePayload.setIdProduit(1L);
-        lignePayload.setQuantite(1);
-
-        CommandeCreatePayload payload = new CommandeCreatePayload();
-        payload.setLignes(List.of(lignePayload));
-
-        when(utilisateurRepository.findById(1L)).thenReturn(Optional.of(utilisateur));
-        when(produitRepository.findById(1L)).thenReturn(Optional.of(produit));
-        when(commandeRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(commandeMapper.toCommandeDto(any())).thenReturn(new CommandeDto());
-
-        commandeService.creerCommande(payload, 1L);
-
-        ArgumentCaptor<CommandeEntity> captor = ArgumentCaptor.forClass(CommandeEntity.class);
-        verify(commandeRepository).save(captor.capture());
-
-        LigneCommandeEntity ligne = captor.getValue().getLignes().get(0);
-        assertThat(ligne.getPrixUnitaire()).isEqualByComparingTo(new BigDecimal("9.99"));
-    }
-}
-```
-
-### `CommandeRepositoryTest.java` (avec TestContainers)
-
-**Chemin** : `src/test/java/com/formation/core/commandes/repository/CommandeRepositoryTest.java`
-
-```java
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Testcontainers
-class CommandeRepositoryTest {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16")
-            .withDatabaseName("formation_test")
-            .withUsername("test")
-            .withPassword("test");
-
-    @DynamicPropertySource
-    static void configureDataSource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url",     postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-    }
-
-    @Autowired
-    private TestEntityManager em;
-
-    @Autowired
-    private CommandeRepository commandeRepository;
-
-    @Test
-    void findByUtilisateurId_retourne_uniquement_les_commandes_de_cet_utilisateur() {
-        UtilisateurEntity alice = em.persist(unUtilisateur("alice@test.com"));
-        UtilisateurEntity bob   = em.persist(unUtilisateur("bob@test.com"));
-        em.persist(uneCommande(alice));
-        em.persist(uneCommande(alice));
-        em.persist(uneCommande(bob));
-        em.flush();
-
-        List<CommandeEntity> commandes = commandeRepository.findByUtilisateurId(alice.getId());
-
-        assertThat(commandes).hasSize(2);
-        assertThat(commandes).allMatch(c -> c.getUtilisateur().getId().equals(alice.getId()));
-    }
-
-    @Test
-    void save_cascade_les_lignes_de_commande() {
-        UtilisateurEntity utilisateur = em.persist(unUtilisateur("test@test.com"));
-        CategorieEntity categorie     = em.persist(uneCategorie());
-        ProduitEntity produit         = em.persist(unProduit(categorie));
-        em.flush();
-
-        CommandeEntity commande = new CommandeEntity();
-        commande.setUtilisateur(utilisateur);
-        commande.setMontantTotal(new BigDecimal("9.99"));
-
-        LigneCommandeEntity ligne = new LigneCommandeEntity();
-        ligne.setCommande(commande);
-        ligne.setProduit(produit);
-        ligne.setQuantite(1);
-        ligne.setPrixUnitaire(new BigDecimal("9.99"));
-        commande.getLignes().add(ligne);
-
-        CommandeEntity sauvegardee = commandeRepository.save(commande);
-        em.flush();
-        em.clear(); // vide le cache de 1er niveau → force un vrai SELECT
-
-        CommandeEntity rechargee = em.find(CommandeEntity.class, sauvegardee.getId());
-        assertThat(rechargee.getLignes()).hasSize(1);
-    }
-
-    // Helpers
-    private UtilisateurEntity unUtilisateur(String email) { /* ... */ }
-    private CommandeEntity uneCommande(UtilisateurEntity u) { /* ... */ }
-}
-```
-
-> **`em.clear()` après `flush()`** : vide le cache de premier niveau de Hibernate. Sans ça, `em.find()` renvoie l'objet déjà en mémoire au lieu de faire un `SELECT` — le test ne vérifierait pas vraiment la persistance.
-
-### Ajout de la dépendance TestContainers dans `build.gradle.kts`
-
-```kotlin
-dependencies {
-    // ... dépendances existantes ...
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:postgresql")
-    testImplementation("org.testcontainers:junit-jupiter")
-}
-```
-
----
-
-## 🧪 Lancer les tests
-
-### Tous les tests
-
-```bash
-./gradlew test
-```
-
-### Un fichier de test spécifique
-
-```bash
-./gradlew test --tests "com.formation.core.commandes.controller.CommandeControllerTest"
-```
-
-### Avec rapport de couverture (JaCoCo)
-
-```bash
-./gradlew test jacocoTestReport
-# Rapport HTML généré dans : build/reports/jacoco/test/html/index.html
-```
-
-### Vérifier que les tests s'exécutent dans le bon ordre
-
-```
-Tests unitaires    → rapides, lancés en premier, pas besoin de Docker
-@WebMvcTest        → Spring MVC seulement, pas de Docker
-@DataJpaTest       → nécessite Docker (TestContainers démarre PostgreSQL)
-```
-
-> TestContainers démarre le container au premier `@DataJpaTest` et le réutilise pour tous les tests de la même JVM (Singleton pattern).
 
 ---
 
 ## 💡 Pièges courants
 
-### `@MockBean` vs `@MockitoBean`
+### `@Valid` manquant — validation silencieusement ignorée
 
 ```java
-// ❌ Déprécié depuis Spring Boot 3.4
-@MockBean
-private IProduitService produitService;
+// ❌ Les annotations @NotBlank sur le DTO ne sont jamais évaluées
+@PostMapping
+public ResponseEntity<ProduitResponse> creer(@RequestBody ProduitCreatePayload payload) { ... }
 
-// ✅ Remplaçant officiel
-@MockitoBean
-private IProduitService produitService;
+// ✅
+@PostMapping
+public ResponseEntity<ProduitResponse> creer(@Valid @RequestBody ProduitCreatePayload payload) { ... }
 ```
 
-### Oublier `em.flush()` + `em.clear()` dans les tests `@DataJpaTest`
+Aucune erreur de compilation, aucun avertissement — Spring accepte les données invalides en silence.
+
+### Exposer la stacktrace en production
 
 ```java
-// ❌ Le find retourne l'objet en cache mémoire, pas ce qui est en base
-em.persist(commande);
-CommandeEntity result = em.find(CommandeEntity.class, commande.getId());
+// ❌ Le client reçoit le message d'exception interne — fuite d'information
+@ExceptionHandler(Exception.class)
+public ResponseEntity<ProblemDetail> handleGeneric(Exception ex) {
+    return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erreur", ex.getMessage()); // ex.getMessage() peut contenir un chemin de fichier, un nom de classe, une requête SQL...
+}
 
-// ✅ Force un vrai aller-retour en base
-em.persist(commande);
-em.flush();  // écrit en base (dans la transaction)
-em.clear();  // vide le cache L1
-CommandeEntity result = em.find(CommandeEntity.class, commande.getId());
+// ✅ Message générique côté client, stacktrace dans les logs serveur uniquement
+@ExceptionHandler(Exception.class)
+public ResponseEntity<ProblemDetail> handleGeneric(Exception ex) {
+    log.error("Erreur inattendue", ex);
+    return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erreur interne", "Une erreur inattendue est survenue.");
+}
 ```
 
-### `@DataJpaTest` ne charge pas les `@Service` ni les `@Controller`
-
-Si votre test `@DataJpaTest` a besoin d'un bean Spring qui n'est pas un Repository ou une Entity, utilisez `@Import` :
+### Ordre des handlers — le plus spécifique d'abord
 
 ```java
-@DataJpaTest
-@Import(CommandeMapper.class) // importe un bean spécifique
-class CommandeRepositoryTest { ... }
+// ❌ Exception.class capture CommandeNonSupprimableException avant son handler dédié
+@ExceptionHandler(Exception.class)           // → 500 pour tout
+@ExceptionHandler(CommandeNonSupprimableException.class)  // jamais atteint
+
+// ✅ Spring choisit le handler le plus spécifique automatiquement
+//    Mais si deux handlers couvrent la même exception, l'ordre de déclaration compte
+@ExceptionHandler(CommandeNonSupprimableException.class)  // → 409
+@ExceptionHandler(Exception.class)           // → 500 pour tout le reste
+```
+
+En pratique, Spring résout l'exception la plus proche dans la hiérarchie — mais déclarer le plus spécifique en premier reste une bonne pratique de lisibilité.
+
+### `@Valid` vs `@Validated`
+
+```java
+// @Valid — standard Jakarta, suffit pour la validation de base sur @RequestBody
+@PostMapping
+public void creer(@Valid @RequestBody ProduitCreatePayload payload) { ... }
+
+// @Validated — Spring, nécessaire pour valider les @RequestParam / @PathVariable
+@GetMapping
+public Page<ProduitResponse> lister(@RequestParam @Min(0) int page) { ... }
+// Le controller doit être annoté @Validated au niveau classe pour que @Min soit évalué
 ```
 
 ---
 
-## ✅ Prochaines étapes
+## ✅ Récapitulatif
 
-1. ✅ Vous savez choisir le bon niveau de test pour chaque couche
-2. ✅ Vous utilisez `@WebMvcTest` pour tester les controllers sans la base de données
-3. ✅ Vous utilisez `@DataJpaTest` + TestContainers pour tester les repositories sur PostgreSQL réel
+```
+Validation des entrées
+├── @Valid sur @RequestBody          → déclenche Bean Validation sur le DTO
+├── @NotBlank, @Size, @Min, @Email   → contraintes déclaratives sur les champs
+├── @NotEmpty + @Valid sur List<>    → cascade la validation sur les éléments
+└── ConstraintViolationException     → levée automatiquement par Spring si @Valid échoue
 
-Vous avez maintenant couvert toutes les couches de test de l'application.
+ProblemDetail RFC 9457
+├── spring.mvc.problemdetails.enabled: true  → active le format sur les erreurs Spring natives
+├── ProblemDetail.forStatusAndDetail(...)    → factory method Spring Boot 3+
+├── setTitle() / setDetail() / setType()     → champs standardisés
+└── Interopérable avec tout client RFC 9457
+
+@RestControllerAdvice
+├── @ExceptionHandler par type d'exception   → un handler par cas
+├── 400 (validation), 401, 403, 404, 409, 500
+├── log.error() sur les 500                  → stacktrace dans les logs, pas dans la réponse
+└── Exceptions custom (CommandeNonSupprimable, ResetTokenInvalid) → 409 / 400
+
+Sécurité
+└── Ne jamais exposer ex.getMessage() dans un 500 → fuite d'information interne
+```
 
 ---
 
-*Dernière mise à jour : 2026-09-30*
+*Dernière mise à jour : 2026-10-27*

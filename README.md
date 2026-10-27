@@ -1,6 +1,6 @@
 # Formation Java + Spring Boot + PostgreSQL
 
-API REST complète construite pas à pas : CRUD, pagination, relations JPA, sécurité JWT et tests.
+API REST complète construite pas à pas : CRUD, relations JPA, pagination, sécurité JWT, gestion des erreurs, tests, CI/Docker et observabilité.
 
 ---
 
@@ -210,10 +210,13 @@ Les étapes de la formation sont détaillées dans [doc/formation/](doc/formatio
 | [DATABASE.md](doc/formation/DATABASE.md) | Schéma de la base de données |
 | [ETAPE_1.md](doc/formation/ETAPE_1.md) | Hello World REST |
 | [ETAPE_2.md](doc/formation/ETAPE_2.md) | CRUD Produits + JPA Auditing |
-| [ETAPE_3.md](doc/formation/ETAPE_3.md) | Pagination et filtres dynamiques |
-| [ETAPE_4.md](doc/formation/ETAPE_4.md) | Relations JPA (Commandes) |
+| [ETAPE_3.md](doc/formation/ETAPE_3.md) | Relations JPA (Commandes) |
+| [ETAPE_4.md](doc/formation/ETAPE_4.md) | Pagination et filtres dynamiques |
 | [ETAPE_5.md](doc/formation/ETAPE_5.md) | Authentification Spring Security + JWT |
-| [ETAPE_6.md](doc/formation/ETAPE_6.md) | Pyramide des tests |
+| [ETAPE_6.md](doc/formation/ETAPE_6.md) | Gestion des erreurs & validation |
+| [ETAPE_7.md](doc/formation/ETAPE_7.md) | Pyramide des tests |
+| [ETAPE_8.md](doc/formation/ETAPE_8.md) | CI et Docker |
+| [ETAPE_9.md](doc/formation/ETAPE_9.md) | Observabilité (Actuator + logs JSON) |
 
 ---
 

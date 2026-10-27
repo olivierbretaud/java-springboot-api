@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindingResult;
@@ -15,7 +16,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,12 +39,11 @@ class GlobalExceptionHandlerTest {
 
         ConstraintViolationException ex = new ConstraintViolationException(Set.of(violation));
 
-        ResponseEntity<Map<String, Object>> response = handler.handleConstraintViolation(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleConstraintViolation(ex);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
-        assertThat(response.getBody()).containsEntry("error", "Paramètre invalide");
-        assertThat(response.getBody()).containsEntry("message", "doit être positif");
-        assertThat(response.getBody()).containsKey("timestamp");
+        assertThat(response.getBody().getTitle()).isEqualTo("Paramètre invalide");
+        assertThat(response.getBody().getDetail()).isEqualTo("doit être positif");
     }
 
     @Test
@@ -57,12 +56,11 @@ class GlobalExceptionHandlerTest {
         MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
         when(ex.getBindingResult()).thenReturn(bindingResult);
 
-        ResponseEntity<Map<String, Object>> response = handler.handleMethodArgumentNotValid(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleMethodArgumentNotValid(ex);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
-        assertThat(response.getBody()).containsEntry("error", "Données invalides");
-        assertThat(response.getBody().get("message").toString()).contains("nom : ne doit pas être vide");
-        assertThat(response.getBody()).containsKey("timestamp");
+        assertThat(response.getBody().getTitle()).isEqualTo("Données invalides");
+        assertThat(response.getBody().getDetail()).contains("nom : ne doit pas être vide");
     }
 
     @Test
@@ -76,11 +74,10 @@ class GlobalExceptionHandlerTest {
         MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
         when(ex.getBindingResult()).thenReturn(bindingResult);
 
-        ResponseEntity<Map<String, Object>> response = handler.handleMethodArgumentNotValid(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleMethodArgumentNotValid(ex);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
-        String message = response.getBody().get("message").toString();
-        assertThat(message)
+        assertThat(response.getBody().getDetail())
             .contains("nom : ne doit pas être vide")
             .contains("prix : doit être positif");
     }
@@ -91,13 +88,11 @@ class GlobalExceptionHandlerTest {
         when(ex.getName()).thenReturn("id");
         doReturn(Long.class).when(ex).getRequiredType();
 
-        ResponseEntity<Map<String, Object>> response = handler.handleTypeMismatch(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleTypeMismatch(ex);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
-        assertThat(response.getBody()).containsEntry("error", "Type invalide");
-        assertThat(response.getBody().get("message").toString()).contains("'id'");
-        assertThat(response.getBody().get("message").toString()).contains("Long");
-        assertThat(response.getBody()).containsKey("timestamp");
+        assertThat(response.getBody().getTitle()).isEqualTo("Type invalide");
+        assertThat(response.getBody().getDetail()).contains("'id'").contains("Long");
     }
 
     @Test
@@ -105,23 +100,21 @@ class GlobalExceptionHandlerTest {
         IllegalArgumentException ex = mock(IllegalArgumentException.class);
         when(ex.getMessage()).thenReturn("Conflit d'email");
 
-        ResponseEntity<Map<String, Object>> response = handler.handleIllegalArgument(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleIllegalArgument(ex);
 
         assertThat(response.getStatusCode().value()).isEqualTo(409);
-        assertThat(response.getBody()).containsEntry("error", "Conflit");
-        assertThat(response.getBody()).containsKey("timestamp");
+        assertThat(response.getBody().getTitle()).isEqualTo("Conflit");
     }
 
     @Test
     void handleEntityNotFound_retourne_404_avec_message() {
         EntityNotFoundException ex = new EntityNotFoundException("Catégorie introuvable : 99");
 
-        ResponseEntity<Map<String, Object>> response = handler.handleEntityNotFound(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleEntityNotFound(ex);
 
         assertThat(response.getStatusCode().value()).isEqualTo(404);
-        assertThat(response.getBody()).containsEntry("error", "Ressource introuvable");
-        assertThat(response.getBody()).containsEntry("message", "Catégorie introuvable : 99");
-        assertThat(response.getBody()).containsKey("timestamp");
+        assertThat(response.getBody().getTitle()).isEqualTo("Ressource introuvable");
+        assertThat(response.getBody().getDetail()).isEqualTo("Catégorie introuvable : 99");
     }
 
     @Test
@@ -130,49 +123,45 @@ class GlobalExceptionHandlerTest {
             "JDBC exception executing SQL [select ...] [ERROR: relation \"produits\" does not exist]"
         );
 
-        ResponseEntity<Map<String, Object>> response = handler.handleDataAccess(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleDataAccess(ex);
 
         assertThat(response.getStatusCode().value()).isEqualTo(500);
-        assertThat(response.getBody()).containsEntry("error", "Erreur base de données");
-        assertThat(response.getBody()).containsEntry("message", "Une erreur est survenue lors de l'accès aux données.");
-        assertThat(response.getBody()).doesNotContainValue("select");
-        assertThat(response.getBody()).containsKey("timestamp");
+        assertThat(response.getBody().getTitle()).isEqualTo("Erreur base de données");
+        assertThat(response.getBody().getDetail()).isEqualTo("Une erreur est survenue lors de l'accès aux données.");
+        assertThat(response.getBody().getDetail()).doesNotContain("select");
     }
 
     @Test
     void handleGeneric_retourne_500_avec_message_generique() {
         Exception ex = new RuntimeException("connexion base de données échouée");
 
-        ResponseEntity<Map<String, Object>> response = handler.handleGeneric(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleGeneric(ex);
 
         assertThat(response.getStatusCode().value()).isEqualTo(500);
-        assertThat(response.getBody()).containsEntry("error", "Erreur interne");
-        assertThat(response.getBody()).containsEntry("message", "Une erreur inattendue est survenue.");
-        assertThat(response.getBody()).containsKey("timestamp");
+        assertThat(response.getBody().getTitle()).isEqualTo("Erreur interne");
+        assertThat(response.getBody().getDetail()).isEqualTo("Une erreur inattendue est survenue.");
     }
 
     @Test
     void handleGeneric_retourne_500_avec_exception_checked() {
         Exception ex = new IllegalStateException("état incohérent détecté");
 
-        ResponseEntity<Map<String, Object>> response = handler.handleGeneric(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleGeneric(ex);
 
         assertThat(response.getStatusCode().value()).isEqualTo(500);
-        assertThat(response.getBody()).containsEntry("error", "Erreur interne");
-        assertThat(response.getBody()).containsEntry("message", "Une erreur inattendue est survenue.");
-        assertThat(response.getBody()).containsKey("timestamp");
+        assertThat(response.getBody().getTitle()).isEqualTo("Erreur interne");
+        assertThat(response.getBody().getDetail()).isEqualTo("Une erreur inattendue est survenue.");
     }
 
     @Test
     void handleBadCredentials_retourne_401_avec_message_generique() {
         BadCredentialsException ex = new BadCredentialsException("Bad credentials");
 
-        ResponseEntity<Map<String, Object>> response = handler.handleBadCredentials(ex);
+        ResponseEntity<ProblemDetail> response = handler.handleBadCredentials(ex);
 
         assertThat(response.getStatusCode().value()).isEqualTo(401);
-        assertThat(response.getBody()).containsEntry("error", "Authentification échouée");
-        assertThat(response.getBody()).containsEntry("message", "Email ou mot de passe incorrect.");
-        assertThat(response.getBody()).doesNotContainValue("Bad credentials");
-        assertThat(response.getBody()).containsKey("timestamp");
+        assertThat(response.getBody().getTitle()).isEqualTo("Authentification échouée");
+        assertThat(response.getBody().getDetail()).isEqualTo("Email ou mot de passe incorrect.");
+        assertThat(response.getBody().getDetail()).doesNotContain("Bad credentials");
     }
 }

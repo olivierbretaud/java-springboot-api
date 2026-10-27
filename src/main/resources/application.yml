@@ -35,6 +35,10 @@ server:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
+mvc:
+  problemdetails:
+    enabled: true
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
